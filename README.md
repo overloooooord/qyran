@@ -8,6 +8,8 @@
 ![Deployment](https://img.shields.io/badge/Deployment-100%25%20On--Premise-22c55e)
 ![License: MIT](https://img.shields.io/badge/License-MIT-slate)
 
+![QYRAN Cover](assets/cover-1920x1080.png)
+
 ---
 
 ## Live Interactive Demos
