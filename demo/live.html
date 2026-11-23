@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qyran — голос в оперативную карту</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#0b1220;color:#e5e7eb}
+#app{position:relative;height:100vh;width:100vw;overflow:hidden}
+#map{position:absolute;inset:0;background:#0f172a}
+.top{position:absolute;top:12px;left:12px;right:400px;display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;z-index:5;pointer-events:none}
+.box{pointer-events:auto;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.25);border-radius:10px;padding:8px 12px}
+.brand b{font-size:16px;letter-spacing:.5px}
+.brand small{display:block;color:#94a3b8;font-size:11px}
+.kpi small{display:block;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.kpi span{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi.red span{color:#f87171}
+.panel{position:absolute;top:12px;right:12px;bottom:12px;width:376px;display:flex;flex-direction:column;gap:10px;background:rgba(15,23,42,.94);border:1px solid rgba(148,163,184,.25);border-radius:14px;padding:14px;z-index:6}
+.row{display:flex;gap:8px;align-items:center}
+.mic{width:64px;height:64px;border-radius:50%;border:2px solid #475569;background:#1e293b;color:#fff;font-size:26px;cursor:pointer;flex:none}
+.mic.on{background:#dc2626;border-color:#fecaca;animation:micp 1.4s infinite}
+@keyframes micp{0%{box-shadow:0 0 0 0 rgba(220,38,38,.6)}100%{box-shadow:0 0 0 16px rgba(220,38,38,0)}}
+.micinfo{flex:1;min-width:0}
+.micinfo .st{font-weight:600;font-size:14px}
+.micinfo .hint{color:#94a3b8;font-size:12px}
+select,input[type=text]{background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:8px;font-size:13px}
+input[type=text]{flex:1;min-width:0}
+button.b{background:#1e293b;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer}
+button.b:hover{border-color:#64748b}
+button.b.primary{background:#dc2626;border-color:#dc2626;color:#fff;font-weight:600}
+button.b:disabled{opacity:.5;cursor:default}
+.heard{background:#0b1220;border:1px solid #334155;border-radius:8px;padding:8px 10px;font-size:13px;min-height:36px}
+.heard .lbl,.parsed .lbl{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:2px}
+.parsed{font-size:13px;padding:2px 2px}
+.parsed.err{color:#fca5a5}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:11px;background:#111827;border:1px dashed #475569;color:#cbd5e1;border-radius:999px;padding:4px 8px;cursor:pointer}
+.feedh{display:flex;justify-content:space-between;align-items:center;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+.feed{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px;min-height:60px}
+.card{background:#111827;border:1px solid #1f2937;border-left:4px solid #dc2626;border-radius:8px;padding:8px 10px;font-size:12px;cursor:pointer}
+.card.closed{border-left-color:#6b7280;opacity:.6}
+.card .h{display:flex;justify-content:space-between;gap:6px;font-weight:700;font-size:13px}
+.sev{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#7f1d1d;color:#fecaca;text-transform:uppercase}
+.card.closed .sev{background:#374151;color:#d1d5db}
+.card .m{color:#cbd5e1;margin-top:3px}
+.card .q{color:#94a3b8;font-style:italic;margin-top:3px}
+.card .f{display:flex;justify-content:space-between;align-items:center;margin-top:5px;color:#64748b}
+.card .f button{font-size:11px;padding:3px 7px}
+.empty{color:#64748b;font-size:12px;text-align:center;padding:16px 4px}
+.toast{position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:9;background:#dc2626;color:#fff;font-weight:800;font-size:18px;padding:12px 20px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;max-width:80vw;text-align:center}
+.toast.show{display:block;animation:tin .25s ease-out}
+.toast.ok{background:#15803d}
+@keyframes tin{from{transform:translate(-50%,-12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.maperr{position:absolute;left:12px;right:400px;bottom:12px;z-index:5;background:rgba(127,29,29,.92);color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;display:none}
+.inc{position:relative;width:22px;height:22px;cursor:pointer}
+.inc .pulse{position:absolute;inset:0;border-radius:50%;background:rgba(239,68,68,.5);animation:pulse 1.6s ease-out infinite}
+.inc .core{position:absolute;inset:5px;border-radius:50%;background:#ef1f1f;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,31,31,.4)}
+.inc .tag{position:absolute;left:26px;top:-3px;white-space:nowrap;background:rgba(17,24,39,.92);color:#fff;font:700 12px/1.2 system-ui,sans-serif;padding:4px 7px;border-radius:6px;border-left:3px solid #ef1f1f}
+.inc.closed .core{background:#6b7280;box-shadow:none}
+.inc.closed .pulse{display:none}
+.inc.closed .tag{border-left-color:#6b7280;color:#d1d5db}
+@keyframes pulse{0%{transform:scale(.6);opacity:.95}100%{transform:scale(3.4);opacity:0}}
+.sq{font:700 12px/1 system-ui,sans-serif;color:#0f172a;background:rgba(255,255,255,.8);border:1px solid #334155;border-radius:4px;padding:2px 5px;pointer-events:none}
+@media (max-width:760px){
+ .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:50%}
+ .top{right:12px}
+ .maperr{right:12px;bottom:52%}
+ .kpi.hide-m{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+  <div class="top">
+    <div class="box brand"><b>QYRAN</b><small>голос → оперативная карта · Алматы</small></div>
+    <div class="box kpi red"><small>Активные</small><span id="kActive">0</span></div>
+    <div class="box kpi"><small>Всего</small><span id="kTotal">0</span></div>
+    <div class="box kpi hide-m"><small>Последнее</small><span id="kLast">—</span></div>
+    <div class="box kpi hide-m"><small>Время</small><span id="clock">--:--:--</span></div>
+  </div>
+  <div id="toast" class="toast"></div>
+  <div id="mapErr" class="maperr"></div>
+
+  <aside class="panel">
+    <div class="row">
+      <button id="micBtn" class="mic" title="Микрофон (пробел)">🎙</button>
+      <div class="micinfo">
+        <div class="st" id="micState">Микрофон выключен</div>
+        <div class="hint">Нажмите или пробел. Говорите как в рацию.</div>
+      </div>
+    </div>
+    <div class="row">
+      <select id="langSel" title="Язык распознавания">
+        <option value="ru-RU">Русский</option>
+        <option value="kk-KZ">Қазақша</option>
+      </select>
+      <label style="font-size:12px;color:#cbd5e1;display:flex;gap:4px;align-items:center"><input type="checkbox" id="ttsChk" checked> голосовой ответ</label>
+    </div>
+    <div class="heard"><span class="lbl">Услышано</span><span id="heard">—</span></div>
+    <div class="parsed" id="parsed"><span class="lbl">Распознано</span>—</div>
+    <div class="row">
+      <input type="text" id="cmdInput" placeholder="Или напишите команду и Enter">
+      <button class="b primary" id="sendBtn">Отправить</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <button class="b" id="demoBtn">▶ Демо-сценарий</button>
+      <button class="b" id="overBtn">Обзор</button>
+      <button class="b" id="resetBtn">Сброс</button>
+    </div>
+    <div class="feedh"><span>Лента инцидентов</span><span id="feedCount"></span></div>
+    <div class="feed" id="feed"><div class="empty">Скажите, например: «Квадрат 7, дрон, идёт на север»</div></div>
+  </aside>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ---------- география ----------
+var B = {n:43.335, s:43.185, w:76.835, e:77.035};
+var G = 4;
+var DX = (B.e - B.w) / G, DY = (B.n - B.s) / G;
+var CENTER = [76.9455, 43.2385];
+
+var LANDMARKS = [
+  {name:'Defense Tech Hub (Зенкова, 24)', c:[76.9555,43.2600], keys:['зенков','defense tech','дефенс тех','хаб']},
+  {name:'Кок-Тобе', c:[76.9765,43.2330], keys:['кок тобе','коктобе','көктөбе','кок тюбе']},
+  {name:'Медеу', c:[77.0590,43.1575], keys:['медеу']},
+  {name:'Аэропорт Алматы', c:[77.0405,43.3520], keys:['аэропорт','әуежай','аэродром']},
+  {name:'Esentai Mall', c:[76.9275,43.2180], keys:['есентай','esentai']},
+  {name:'Площадь Республики', c:[76.9455,43.2385], keys:['площадь республики','площади республики','республик','центр']},
+  {name:'Вокзал Алматы-1', c:[76.9497,43.3418], keys:['алматы 1','алматы один','алматы первый','вокзал 1','первый вокзал']},
+  {name:'Вокзал Алматы-2', c:[76.9415,43.2725], keys:['алматы 2','алматы два','алматы второй','вокзал 2','второй вокзал','вокзал']},
+  {name:'ТЭЦ (условная точка)', c:[76.8450,43.3000], keys:['тэц','электростанц']},
+  {name:'КБТУ', c:[76.9440,43.2555], keys:['кбту','толе би']},
+  {name:'Парк 28 панфиловцев', c:[76.9555,43.2585], keys:['панфилов']},
+  {name:'MEGA Alma-Ata', c:[76.9280,43.2025], keys:['мега']},
+  {name:'Озеро Сайран', c:[76.8710,43.2420], keys:['сайран']},
+  {name:'Барахолка', c:[76.8550,43.2650], keys:['барахолк']},
+  {name:'БАО', c:[76.9850,43.0510], keys:['бао','большое алматинское','большого алматинского','үлкен алматы']}
+];
+
+var TYPES = [
+  {id:'explosion', l:'Взрыв', sev:'Критично', speed:0, k:['взрыв','взорв','детонац','жарылыс']},
+  {id:'shooting', l:'Стрельба', sev:'Критично', speed:0, k:['стрельб','выстрел','стреля','перестрел','атыс']},
+  {id:'uav', l:'БПЛА', sev:'Высокий', speed:45, k:['дрон','бпла','беспилот','коптер','шахед','ұшқышсыз','пилотсыз','летательн']},
+  {id:'fire', l:'Пожар', sev:'Высокий', speed:0, k:['пожар','возгоран','горит','огонь','задымлен',' дым ','өрт','түтін']},
+  {id:'crash', l:'ДТП', sev:'Средний', speed:0, k:['дтп','авари','столкнов','апат']},
+  {id:'vehicle', l:'Техника', sev:'Высокий', speed:18, k:['колонн','техник','бтр','танк','бронемаш','грузовик','машин','көлік']},
+  {id:'person', l:'Подозрительные лица', sev:'Средний', speed:6, k:['подозрит','диверс','нарушител','вооруж','человек','люд','групп','адам']}
+];
+var OTHER = {id:'other', l:'Происшествие', sev:'Средний', speed:0, k:[]};
+
+var DIRS = [
+  {l:'северо-восток', b:45, k:['северо восток','северовосток','солтүстік шығыс']},
+  {l:'северо-запад', b:315, k:['северо запад','северозапад','солтүстік батыс']},
+  {l:'юго-восток', b:135, k:['юго восток','юговосток','оңтүстік шығыс']},
+  {l:'юго-запад', b:225, k:['юго запад','югозапад','оңтүстік батыс']},
+  {l:'север', b:0, k:['север','солтүстік']},
+  {l:'юг', b:180, k:['юг ','юга ','югу ','южн','оңтүстік']},
+  {l:'восток', b:90, k:['восток','восточ','шығыс']},
+  {l:'запад', b:270, k:['запад','батыс']}
+];
+
+var CLOSE_K = ['отбой','уничтож','нейтрализ','поражен','ликвидир','закрыть инцидент','инцидент закрыт','сбит','сбили','потушен','жойылды'];
+var MARKERS_T = [' в сторону ',' курсом на ',' курс на ',' направляется к ',' направляется в ',' направляются к ',' движется к ',' движутся к ',' летит к ',' летят к ',' идет к ',' идут к '];
+
+var NUM_PREFIX = [['одиннадц',11],['двенадц',12],['тринадц',13],['четырнадц',14],['пятнадц',15],['шестнадц',16],
+  ['один',1],['одн',1],['перв',1],['два',2],['две',2],['втор',2],['три',3],['трет',3],['четыр',4],['четв',4],
+  ['пят',5],['шест',6],['седьм',7],['сем',7],['восьм',8],['восем',8],['девят',9],['десят',10],
+  ['бір',1],['екі',2],['үш',3],['төрт',4],['бес',5],['алты',6],['жеті',7],['сегіз',8],['тоғыз',9]];
+
+// ---------- утилиты ----------
+function norm(s){
+  return String(s).toLowerCase().replace(/ё/g,'е').replace(/[-–—]/g,' ')
+    .replace(/[.,!?;:«»"()]/g,' ').replace(/\s+/g,' ').trim();
+}
+function wordNum(w){
+  if(!w) return null;
+  if(/^\d+$/.test(w)) return parseInt(w,10);
+  if(w === 'он') return 10;
+  for(var i=0;i<NUM_PREFIX.length;i++){ if(w.indexOf(NUM_PREFIX[i][0]) === 0) return NUM_PREFIX[i][1]; }
+  return null;
+}
+function squareCenter(n){
+  var r = Math.floor((n-1)/G), c = (n-1)%G;
+  return [B.w + (c+0.5)*DX, B.n - (r+0.5)*DY];
+}
+function squareOf(p){
+  var c = Math.floor((p[0]-B.w)/DX), r = Math.floor((B.n-p[1])/DY);
+  if(c<0||c>=G||r<0||r>=G) return null;
+  return r*G + c + 1;
+}
+function jitter(p, rx, ry){
+  return [p[0] + (Math.random()-0.5)*2*rx, p[1] + (Math.random()-0.5)*2*ry];
+}
+function distM(a,b){
+  var k = Math.cos(a[1]*Math.PI/180);
+  var dx = (b[0]-a[0])*111320*k, dy = (b[1]-a[1])*110540;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+function dest(p, brg, m){
+  var r = brg*Math.PI/180;
+  return [p[0] + m*Math.sin(r)/(111320*Math.cos(p[1]*Math.PI/180)), p[1] + m*Math.cos(r)/110540];
+}
+function bearing(a,b){
+  var dx = (b[0]-a[0])*Math.cos(a[1]*Math.PI/180), dy = b[1]-a[1];
+  return (Math.atan2(dx,dy)*180/Math.PI + 360) % 360;
+}
+function fmtTime(d){ return d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function el(tag, cls, text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+
+// ---------- разбор команды ----------
+function findLandmark(s){
+  var best = null;
+  LANDMARKS.forEach(function(lm){
+    lm.keys.forEach(function(k){
+      var i = s.indexOf(k);
+      if(i>=0 && (!best || k.length>best.k.length || (k.length===best.k.length && i<best.i))) best = {lm:lm, k:k, i:i};
+    });
+  });
+  return best;
+}
+function findSquare(s){
+  var m = s.match(/(?:квадрат|сектор|шаршы)[^\s\d]*\s*(?:номер\s*|№\s*)?(\d{1,2})/);
+  var n = null;
+  if(m){ n = parseInt(m[1],10); }
+  else {
+    var w = s.match(/(?:квадрат|сектор|шаршы)\S*\s+(\S+)(?:\s+(\S+))?/);
+    if(w){
+      n = wordNum(w[1]);
+      if(n === null && w[2]) n = wordNum(w[2]);
+      else if(n === 10 && w[2]){ var u = wordNum(w[2]); if(u && u<10) n = 10+u; }
+    }
+  }
+  return (n && n>=1 && n<=G*G) ? n : null;
+}
+function findDir(p){
+  for(var i=0;i<DIRS.length;i++){
+    for(var j=0;j<DIRS[i].k.length;j++){ if(p.indexOf(' '+DIRS[i].k[j]) >= 0) return DIRS[i]; }
+  }
+  return null;
+}
+function findCount(s){
+  var m = s.match(/(\d+|два|две|двое|три|трое|четыре|пять|несколько|группа|рой|пара)\s+(?:\S+\s+)?(?:дрон|бпла|беспилот|коптер|человек|машин|единиц|бтр|танк|грузовик|нарушител)/);
+  if(!m) return null;
+  var map = {'два':'2','две':'2','двое':'2','три':'3','трое':'3','четыре':'4','пять':'5','пара':'2'};
+  return map[m[1]] || m[1];
+}
+function parse(raw){
+  var s = norm(raw), p = ' ' + s + ' ';
+  var r = {raw:raw, s:s};
+  r.close = CLOSE_K.some(function(k){ return p.indexOf(k) >= 0; });
+  var cut = -1, mlen = 0;
+  MARKERS_T.forEach(function(m){ var i=p.indexOf(m); if(i>=0 && (cut<0 || i<cut)){ cut=i; mlen=m.length; } });
+  var pre = cut>=0 ? p.slice(0,cut) + ' ' : p;
+  var post = cut>=0 ? ' ' + p.slice(cut+mlen) : '';
+  var lm = findLandmark(pre), sq = findSquare(pre);
+  r.loc = null;
+  if(lm) r.loc = {name:lm.lm.name, c:jitter(lm.lm.c, 0.0012, 0.0009)};
+  else if(sq) r.loc = {name:'Квадрат '+sq, c:jitter(squareCenter(sq), DX*0.18, DY*0.18), square:sq};
+  r.target = null;
+  if(post){
+    var lt = findLandmark(post), st = findSquare(post);
+    if(lt) r.target = {name:lt.lm.name, c:lt.lm.c};
+    else if(st) r.target = {name:'квадрат '+st, c:squareCenter(st)};
+  }
+  r.type = null;
+  for(var i=0;i<TYPES.length && !r.type;i++){
+    if(TYPES[i].k.some(function(k){ return p.indexOf(k) >= 0; })) r.type = TYPES[i];
+  }
+  var d = findDir(p);
+  r.heading = null; r.dirLabel = null;
+  if(r.target && r.loc){ r.heading = bearing(r.loc.c, r.target.c); r.dirLabel = 'на ' + r.target.name; }
+  else if(d){ r.heading = d.b; r.dirLabel = d.l; }
+  var s2 = p.replace(/(?:квадрат|сектор|шаршы)\S*\s+\S+/g,' ').replace(/(?:высот|биіктік)\S*\s+(?:около\s+|примерно\s+)?\S+/g,' ');
+  r.count = findCount(s2);
+  var am = p.match(/(?:высот|биіктік)\S*\s+(?:около\s+|примерно\s+)?(\d+)/);
+  r.alt = am ? parseInt(am[1],10) : null;
+  return r;
+}
+
+// ---------- состояние ----------
+var incidents = [], seq = 0, map = null, mapReady = false, dirty = false;
+
+// ---------- звук ----------
+var actx = null;
+function beep(ok){
+  try{
+    if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    var t = actx.currentTime;
+    var tones = ok ? [660, 880] : [880, 620, 880];
+    tones.forEach(function(f, i){
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + i*0.16);
+      g.gain.exponentialRampToValueAtTime(0.12, t + i*0.16 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i*0.16 + 0.14);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t + i*0.16); o.stop(t + i*0.16 + 0.15);
+    });
+  }catch(e){}
+}
+var suppressUntil = 0;
+function say(text){
+  if(!document.getElementById('ttsChk').checked || !window.speechSynthesis) return;
+  try{
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ru-RU'; u.rate = 1.05;
+    suppressUntil = Date.now() + 15000;
+    u.onend = function(){ suppressUntil = Date.now() + 700; };
+    u.onerror = function(){ suppressUntil = Date.now() + 300; };
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+// ---------- UI ----------
+var toastTimer = null;
+function toast(text, ok){
+  var t = document.getElementById('toast');
+  t.textContent = text; t.className = 'toast show' + (ok ? ' ok' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.className = 'toast'; }, 4000);
+}
+function setParsed(text, err){
+  var e = document.getElementById('parsed');
+  e.className = 'parsed' + (err ? ' err' : '');
+  e.innerHTML = '';
+  e.appendChild(el('span','lbl','Распознано'));
+  e.appendChild(document.createTextNode(text));
+}
+function tagText(i){ return '#' + i.id + ' ' + i.type.l + (i.count ? ' ×' + i.count : '') + (i.active ? '' : ' · закрыт'); }
+
+function renderFeed(){
+  var feed = document.getElementById('feed');
+  feed.innerHTML = '';
+  var act = incidents.filter(function(i){ return i.active; });
+  document.getElementById('kActive').textContent = act.length;
+  document.getElementById('kTotal').textContent = incidents.length;
+  document.getElementById('kLast').textContent = incidents.length ? fmtTime(incidents[incidents.length-1].t) : '—';
+  document.getElementById('feedCount').textContent = incidents.length ? (act.length + ' акт. / ' + incidents.length) : '';
+  if(!incidents.length){
+    feed.appendChild(el('div','empty','Скажите, например: «Квадрат 7, дрон, идёт на север»'));
+    return;
+  }
+  var list = act.slice().reverse().concat(incidents.filter(function(i){ return !i.active; }).reverse());
+  list.forEach(function(i){
+    var c = el('div', 'card' + (i.active ? '' : ' closed'));
+    var h = el('div','h');
+    h.appendChild(el('span', null, '#' + i.id + ' · ' + i.type.l + (i.count ? ' ×' + i.count : '')));
+    h.appendChild(el('span','sev', i.active ? i.type.sev : 'Закрыт'));
+    c.appendChild(h);
+    var meta = '📍 ' + i.loc.name + (i.square && i.loc.name.indexOf('Квадрат') !== 0 ? ' (кв. ' + i.square + ')' : '');
+    c.appendChild(el('div','m', meta));
+    if(i.dirLabel) c.appendChild(el('div','m', '➜ Курс: ' + i.dirLabel));
+    if(i.alt) c.appendChild(el('div','m', '↑ Высота: ' + i.alt + ' м'));
+    c.appendChild(el('div','q', '«' + i.raw + '»'));
+    var f = el('div','f');
+    f.appendChild(el('span', null, fmtTime(i.t) + ' · ' + i.source));
+    if(i.active){
+      var btn = el('button','b','Закрыть');
+      btn.addEventListener('click', function(ev){ ev.stopPropagation(); doClose(i, 'вручную'); });
+      f.appendChild(btn);
+    }
+    c.appendChild(f);
+    c.addEventListener('click', function(){ focusInc(i); });
+    feed.appendChild(c);
+  });
+}
+
+// ---------- карта ----------
+function showMapErr(msg){
+  var e = document.getElementById('mapErr');
+  e.textContent = msg; e.style.display = 'block';
+}
+function gridGeo(){
+  var feats = [];
+  for(var r=0;r<G;r++) for(var c=0;c<G;c++){
+    var x0 = B.w + c*DX, x1 = x0 + DX, y0 = B.n - r*DY, y1 = y0 - DY;
+    feats.push({type:'Feature', properties:{n:r*G+c+1}, geometry:{type:'Polygon', coordinates:[[[x0,y0],[x1,y0],[x1,y1],[x0,y1],[x0,y0]]]}});
+  }
+  return {type:'FeatureCollection', features:feats};
+}
+var EMPTY = {type:'FeatureCollection', features:[]};
+
+function initMap(){
+  if(!window.maplibregl){
+    showMapErr('Карта не загрузилась: нет доступа к интернету или превью блокирует внешние скрипты. Откройте qyran.html в Chrome. Распознавание и лента работают и без карты.');
+    return;
+  }
+  try{
+    map = new maplibregl.Map({
+      container:'map', style:'https://tiles.openfreemap.org/styles/liberty',
+      center:[76.945, 43.255], zoom:12.2, pitch:55, bearing:-15, maxPitch:75
+    });
+    map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'bottom-left');
+    map.on('load', function(){
+      add3D(); addGrid(); addLines();
+      mapReady = true;
+      incidents.forEach(function(i){ if(!i.marker) addMarker(i); });
+      dirty = true;
+    });
+    map.on('error', function(e){ if(window.console) console.warn('map error', e && e.error); });
+    setTimeout(function(){ if(!mapReady) showMapErr('Карта грузится слишком долго. Проверьте интернет (для демо подойдёт раздача с телефона).'); }, 12000);
+  }catch(e){
+    showMapErr('Ошибка карты: ' + e.message);
+  }
+}
+function add3D(){
+  try{
+    var st = map.getStyle();
+    var has = st.layers.some(function(l){ return l.type === 'fill-extrusion'; });
+    if(!has && map.getSource('openmaptiles')){
+      var sym = st.layers.filter(function(l){ return l.type === 'symbol'; })[0];
+      map.addLayer({id:'q-buildings', type:'fill-extrusion', source:'openmaptiles', 'source-layer':'building', minzoom:12,
+        paint:{'fill-extrusion-color':'#d6d3cc','fill-extrusion-height':['coalesce',['get','render_height'],12],
+               'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':0.85}}, sym ? sym.id : undefined);
+    }
+  }catch(e){ if(window.console) console.warn(e); }
+}
+function addGrid(){
+  map.addSource('grid', {type:'geojson', data:gridGeo()});
+  map.addLayer({id:'grid-fill', type:'fill', source:'grid', paint:{'fill-color':'#1e293b','fill-opacity':0.04}});
+  map.addLayer({id:'grid-hl', type:'fill', source:'grid', filter:['==',['get','n'],-1], paint:{'fill-color':'#dc2626','fill-opacity':0.13}});
+  map.addLayer({id:'grid-line', type:'line', source:'grid', paint:{'line-color':'#1e293b','line-width':1.3,'line-opacity':0.6,'line-dasharray':[2,2]}});
+  for(var n=1;n<=G*G;n++){
+    var r = Math.floor((n-1)/G), c = (n-1)%G;
+    var d = el('div','sq', String(n));
+    new maplibregl.Marker({element:d, anchor:'top-left'}).setLngLat([B.w + c*DX + DX*0.05, B.n - r*DY - DY*0.05]).addTo(map);
+  }
+}
+function addLines(){
+  map.addSource('tracks', {type:'geojson', data:EMPTY});
+  map.addSource('forecast', {type:'geojson', data:EMPTY});
+  map.addLayer({id:'tracks', type:'line', source:'tracks', layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color':'#ef1f1f','line-width':3.5,'line-opacity':0.9}});
+  map.addLayer({id:'forecast', type:'line', source:'forecast', paint:{'line-color':'#ef1f1f','line-width':2,'line-dasharray':[1.5,1.5],'line-opacity':0.75}});
+}
+function updateLines(){
+  if(!mapReady) return;
+  var tr = [], fc = [];
+  incidents.forEach(function(i){
+    if(i.track.length > 0 && distM(i.track[0], i.pos) > 5) tr.push({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates:i.track.concat([i.pos])}});
+    if(i.active && i.heading != null){
+      var end = i.target ? i.target.c : dest(i.pos, i.heading, 2500);
+      fc.push({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates:[i.pos, end]}});
+    }
+  });
+  map.getSource('tracks').setData({type:'FeatureCollection', features:tr});
+  map.getSource('forecast').setData({type:'FeatureCollection', features:fc});
+}
+function addMarker(i){
+  if(!mapReady) return;
+  var e = el('div','inc');
+  e.appendChild(el('span','pulse')); e.appendChild(el('span','core'));
+  var t = el('span','tag', tagText(i)); e.appendChild(t);
+  e.addEventListener('click', function(){ focusInc(i); });
+  i.el = e; i.tagEl = t;
+  i.marker = new maplibregl.Marker({element:e, anchor:'center'}).setLngLat(i.pos).addTo(map);
+}
+function focusInc(i){
+  if(!mapReady) return;
+  map.flyTo({center:i.pos, zoom:14.6, pitch:62, bearing:-20, speed:1.3, essential:true});
+  map.setFilter('grid-hl', ['==',['get','n'], i.square || -1]);
+}
+function overview(){
+  if(!mapReady) return;
+  map.flyTo({center:[76.945,43.26], zoom:11.9, pitch:50, bearing:-15, speed:1.2, essential:true});
+}
+
+// ---------- инциденты ----------
+function handleCommand(raw, source){
+  raw = (raw || '').trim();
+  if(!raw) return;
+  document.getElementById('heard').textContent = raw;
+  var r = parse(raw);
+  if(r.close){ closeFor(r); return; }
+  if(!r.type && !r.loc){
+    setParsed('Не понял команду. Нужен тип (дрон, пожар, взрыв…) или место (квадрат 1–16, Кок-Тобе, аэропорт…)', true);
+    say('Не понял. Повторите.');
+    return;
+  }
+  var type = r.type || OTHER;
+  var loc = r.loc, approx = false;
+  if(!loc){ loc = {name:'Место не указано (центр)', c:jitter(CENTER, 0.004, 0.003)}; approx = true; }
+  var now = performance.now();
+  var i = {
+    id:++seq, t:new Date(), type:type, loc:loc,
+    square: approx ? null : (loc.square || squareOf(loc.c)),
+    heading:r.heading, dirLabel:r.dirLabel, target:r.target, count:r.count, alt:r.alt,
+    raw:raw, source:source, active:true, pos:loc.c.slice(), track:[loc.c.slice()],
+    moving: r.heading != null && type.speed > 0, born:now, lastTrack:now
+  };
+  incidents.push(i);
+  addMarker(i);
+  renderFeed();
+  focusInc(i);
+  dirty = true;
+  var parts = [type.l + (i.count ? ' ×' + i.count : ''), loc.name];
+  if(i.dirLabel) parts.push('курс ' + i.dirLabel);
+  if(i.alt) parts.push('высота ' + i.alt + ' м');
+  setParsed(parts.join(' · '));
+  toast('⚠ #' + i.id + ' ' + parts.slice(0,2).join(' · '));
+  beep(false);
+  say('Принято. ' + parts.join(', ') + '.');
+}
+function closeFor(r){
+  var act = incidents.filter(function(i){ return i.active; });
+  if(!act.length){ setParsed('Активных инцидентов нет', true); say('Активных инцидентов нет.'); return; }
+  var pick = null;
+  if(r.loc){
+    if(r.loc.square){ pick = act.slice().reverse().filter(function(i){ return i.square === r.loc.square; })[0] || null; }
+    if(!pick){ pick = act.reduce(function(b,i){ return distM(i.pos, r.loc.c) < distM(b.pos, r.loc.c) ? i : b; }); }
+  }
+  if(!pick && r.type){ pick = act.slice().reverse().filter(function(i){ return i.type.id === r.type.id; })[0] || null; }
+  if(!pick) pick = act[act.length-1];
+  doClose(pick, r.raw);
+}
+function doClose(i, why){
+  i.active = false; i.moving = false;
+  if(i.el){ i.el.className = 'inc closed'; i.tagEl.textContent = tagText(i); }
+  renderFeed(); dirty = true;
+  setParsed('Инцидент #' + i.id + ' (' + i.type.l + ') закрыт');
+  toast('✓ #' + i.id + ' ' + i.type.l + ' — закрыт', true);
+  beep(true);
+  say('Принято. Инцидент ' + i.id + ', ' + i.type.l + ', закрыт.');
+}
+function resetAll(){
+  incidents.forEach(function(i){ if(i.marker) i.marker.remove(); });
+  incidents = []; seq = 0; dirty = true;
+  if(mapReady){ map.setFilter('grid-hl', ['==',['get','n'],-1]); updateLines(); }
+  renderFeed();
+  setParsed('—');
+  document.getElementById('heard').textContent = '—';
+}
+
+// ---------- анимация ----------
+var lastT = performance.now(), lastData = 0;
+function tick(now){
+  var dt = Math.min(0.1, (now - lastT)/1000); lastT = now;
+  var changed = false;
+  incidents.forEach(function(i){
+    if(!i.active || !i.moving) return;
+    if((now - i.born)/1000 > 240){ i.moving = false; return; }
+    var hd = i.heading;
+    if(i.target){
+      if(distM(i.pos, i.target.c) < 80){ i.moving = false; return; }
+      hd = bearing(i.pos, i.target.c);
+    }
+    i.pos = dest(i.pos, hd, i.type.speed * dt);
+    if(i.marker) i.marker.setLngLat(i.pos);
+    if(now - i.lastTrack > 800){ i.track.push(i.pos.slice()); i.lastTrack = now; }
+    changed = true;
+  });
+  if(mapReady && (changed || dirty) && now - lastData > 200){ updateLines(); lastData = now; dirty = false; }
+  requestAnimationFrame(tick);
+}
+
+// ---------- микрофон ----------
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+var rec = null, listening = false;
+function updateMic(text){
+  document.getElementById('micBtn').className = 'mic' + (listening ? ' on' : '');
+  document.getElementById('micState').textContent = text || (listening ? 'Слушаю… говорите команду' : 'Микрофон выключен');
+}
+function startRec(){
+  if(!SR){ updateMic('Распознавание речи недоступно: нужен Google Chrome'); return; }
+  try{
+    rec = new SR();
+    rec.lang = document.getElementById('langSel').value;
+    rec.continuous = true; rec.interimResults = true;
+    rec.onresult = function(e){
+      if(Date.now() < suppressUntil) return;
+      var interim = '';
+      for(var k=e.resultIndex; k<e.results.length; k++){
+        var res = e.results[k];
+        if(res.isFinal) handleCommand(res[0].transcript, 'голос');
+        else interim += res[0].transcript;
+      }
+      if(interim) document.getElementById('heard').textContent = interim + '…';
+    };
+    rec.onerror = function(e){
+      if(e.error === 'no-speech' || e.error === 'aborted') return;
+      var msg = 'Ошибка микрофона: ' + e.error;
+      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+        msg = 'Нет доступа к микрофону. Разрешите его в браузере (в превью PromptQL микрофон недоступен — откройте файл в Chrome).';
+        listening = false;
+      }
+      updateMic(msg);
+    };
+    rec.onend = function(){ if(listening){ try{ rec.start(); }catch(err){} } else updateMic(); };
+    rec.start();
+    listening = true; updateMic();
+  }catch(err){ listening = false; updateMic('Не удалось включить микрофон: ' + err.message); }
+}
+function stopRec(){ listening = false; if(rec){ try{ rec.stop(); }catch(e){} } updateMic(); }
+function toggleMic(){ if(listening) stopRec(); else startRec(); }
+
+// ---------- демо ----------
+var DEMO = [
+  'Квадрат 7, замечен дрон, идёт на север, высота 150',
+  'Возгорание у ТЭЦ',
+  'Два дрона над Кок-Тобе, курс на площадь Республики',
+  'Подозрительная группа людей у аэропорта, движутся в сторону вокзала Алматы-1',
+  'Цель в квадрате 7 уничтожена'
+];
+var demoRunning = false;
+function runDemo(){
+  if(demoRunning) return;
+  demoRunning = true;
+  var btn = document.getElementById('demoBtn'); btn.disabled = true;
+  DEMO.forEach(function(cmd, k){
+    setTimeout(function(){
+      handleCommand(cmd, 'демо');
+      if(k === DEMO.length-1){ demoRunning = false; btn.disabled = false; }
+    }, k*7000);
+  });
+}
+
+// ---------- запуск ----------
+function boot(){
+  var chips = document.getElementById('chips');
+  ['Квадрат 7, дрон, идёт на север','Пожар у ТЭЦ','Два дрона над Кок-Тобе, курс на площадь Республики','Взрыв в квадрате 10','Цель в квадрате 7 уничтожена'].forEach(function(c){
+    var ch = el('span','chip', c);
+    ch.addEventListener('click', function(){ handleCommand(c, 'текст'); });
+    chips.appendChild(ch);
+  });
+  var input = document.getElementById('cmdInput');
+  document.getElementById('sendBtn').addEventListener('click', function(e){ e.preventDefault(); handleCommand(input.value, 'текст'); input.value = ''; });
+  input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); handleCommand(input.value, 'текст'); input.value = ''; } });
+  document.getElementById('micBtn').addEventListener('click', toggleMic);
+  document.getElementById('langSel').addEventListener('change', function(){ if(listening){ stopRec(); startRec(); } });
+  document.getElementById('demoBtn').addEventListener('click', runDemo);
+  document.getElementById('overBtn').addEventListener('click', overview);
+  document.getElementById('resetBtn').addEventListener('click', resetAll);
+  document.addEventListener('keydown', function(e){
+    var tag = (document.activeElement && document.activeElement.tagName) || '';
+    if(e.code === 'Space' && tag !== 'INPUT' && tag !== 'SELECT'){ e.preventDefault(); toggleMic(); }
+  });
+  setInterval(function(){ document.getElementById('clock').textContent = fmtTime(new Date()); }, 1000);
+  if(!SR) updateMic('Голос: откройте в Google Chrome. Текстом — работает.');
+  renderFeed();
+  initMap();
+  requestAnimationFrame(tick);
+}
+boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QYRAN — питч</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+:root{--red:#ff3b30;--amber:#ffb020;--ink:#f5f5f4;--mut:#a1a1aa;--bg:#07090d;--line:rgba(255,255,255,.14)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0;cursor:default}
+#map{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,#141a26 0%,#07090d 70%)}
+body.nomap #map{background:radial-gradient(ellipse at 50% 60%,#1a2130 0%,#07090d 70%),repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 60px),repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 60px)}
+.maplibregl-ctrl-attrib{opacity:.35}
+.sh{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .9s ease}
+#shL{background:linear-gradient(90deg,rgba(7,9,13,.93) 0%,rgba(7,9,13,.75) 38%,rgba(7,9,13,0) 70%)}
+#shF{background:rgba(7,9,13,.82);backdrop-filter:blur(2px)}
+#shD{background:linear-gradient(90deg,rgba(7,9,13,.8) 0%,rgba(7,9,13,0) 40%)}
+#shC{background:radial-gradient(ellipse at center,rgba(7,9,13,.55) 0%,rgba(7,9,13,.92) 75%)}
+.sh.on{opacity:1}
+#vign{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 220px rgba(0,0,0,.75)}
+
+/* progress — как сторис */
+#prog{position:absolute;top:14px;left:20px;right:20px;display:flex;gap:6px;z-index:30;pointer-events:none}
+#prog span{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.18);overflow:hidden}
+#prog span i{display:block;height:100%;width:0;background:#fff;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+#prog span.done i{width:100%}
+#prog span.cur i{background:var(--red)}
+#brand{position:absolute;top:30px;left:24px;z-index:30;font:700 13px/1 Unbounded,Inter,sans-serif;letter-spacing:3px;opacity:.75;pointer-events:none}
+#brand b{color:var(--red)}
+#pageN{position:absolute;top:30px;right:24px;z-index:30;font:600 12px/1 Inter,sans-serif;color:var(--mut);letter-spacing:1px;pointer-events:none}
+
+/* wipe transition */
+#wipe{position:absolute;inset:0;z-index:40;pointer-events:none;overflow:hidden}
+#wipe i{position:absolute;top:-10%;bottom:-10%;width:34vw;left:-40vw;transform:skewX(-18deg);background:linear-gradient(90deg,rgba(255,59,48,0),rgba(255,59,48,.55) 45%,rgba(255,255,255,.9) 50%,rgba(255,59,48,.55) 55%,rgba(255,59,48,0));mix-blend-mode:screen;opacity:0}
+#wipe.go i{animation:wipe .7s cubic-bezier(.6,0,.3,1)}
+@keyframes wipe{0%{left:-40vw;opacity:1}100%{left:110vw;opacity:1}}
+
+/* slides */
+#slides{position:absolute;inset:0;z-index:20;pointer-events:none}
+.slide{position:absolute;inset:0;display:none}
+.slide.on,.slide.out{display:block}
+.box{position:absolute;left:6vw;top:50%;transform:translateY(-50%);width:min(46vw,860px)}
+.slide.center .box{left:50%;transform:translate(-50%,-50%);width:min(86vw,1400px);text-align:center}
+.slide.bottom .box{top:auto;bottom:9vh;transform:none}
+.slide.center.bottom .box{transform:translateX(-50%)}
+.slide.out .inner{animation:outA .45s ease-in forwards}
+@keyframes outA{to{opacity:0;transform:scale(.95) translateY(-24px);filter:blur(12px)}}
+.a{opacity:0;transform:translateY(30px);filter:blur(10px)}
+.slide.on .a,.slide.out .a{animation:inA .75s cubic-bezier(.2,.85,.2,1) forwards;animation-delay:calc(var(--d,0) * 110ms + 120ms)}
+@keyframes inA{to{opacity:1;transform:none;filter:none}}
+.f{display:none;opacity:0;transform:translateY(24px);filter:blur(8px)}
+.f.show{display:block;animation:inA .65s cubic-bezier(.2,.85,.2,1) forwards;animation-delay:calc(var(--d,0) * 110ms)}
+.f.show.flexrow{display:flex}
+.f.show.grid{display:grid}
+.gone{display:none!important}
+
+.kick{font:700 clamp(11px,1vw,15px)/1.3 Inter,sans-serif;letter-spacing:3px;color:var(--red);text-transform:uppercase;margin-bottom:18px}
+h1{font:800 clamp(34px,4.6vw,88px)/1.02 Unbounded,Inter,sans-serif;margin:0 0 18px;letter-spacing:-1px}
+h2{font:700 clamp(26px,3vw,56px)/1.1 Unbounded,Inter,sans-serif;margin:18px 0 0;letter-spacing:-.5px}
+.red{color:var(--red)}
+.amber{color:var(--amber)}
+.sub{font:500 clamp(16px,1.5vw,26px)/1.4 Inter,sans-serif;color:#d4d4d8;margin:10px 0 0}
+.logo{font:800 clamp(70px,12vw,230px)/.9 Unbounded,Inter,sans-serif;letter-spacing:clamp(4px,1.2vw,24px);background:linear-gradient(180deg,#fff 30%,#ffb3ad);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 80px rgba(255,59,48,.35)}
+.hint{margin-top:40px;font:600 14px/1 Inter,sans-serif;color:var(--mut);letter-spacing:2px;text-transform:uppercase}
+.slide.on .hint{animation:inA .75s forwards,blink 1.6s 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+.threatwords{font:800 clamp(20px,2.2vw,40px)/1.2 Unbounded,Inter,sans-serif;margin-top:8px}
+.threatwords .a{display:inline-block;margin-right:.35em}
+.chip{display:inline-flex;align-items:center;gap:10px;margin-top:26px;padding:10px 16px;border:1px solid rgba(255,59,48,.5);border-radius:999px;background:rgba(255,59,48,.1);font:600 clamp(13px,1.1vw,18px)/1 Inter,sans-serif}
+.chip b{font-size:1.3em;color:var(--red);font-variant-numeric:tabular-nums}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 0 0 rgba(255,59,48,.7);animation:dp 1.4s infinite}
+@keyframes dp{100%{box-shadow:0 0 0 14px rgba(255,59,48,0)}}
+
+.bubble{margin-top:22px;border:1px solid var(--line);background:rgba(15,18,26,.85);border-radius:14px;padding:14px 18px;max-width:640px}
+.bubble .bh{font:700 12px/1 Inter,sans-serif;letter-spacing:2px;color:var(--amber);margin-bottom:10px}
+.bubble .bt{font:600 clamp(18px,1.7vw,30px)/1.3 Inter,sans-serif;min-height:1.3em}
+.bubble .bt::after{content:'▍';color:var(--red);animation:blink .8s infinite}
+.q{color:#fff}
+
+.chain{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:34px 0 10px}
+.step{border:1px solid var(--line);background:rgba(20,24,33,.9);border-radius:14px;padding:16px 18px;font:600 clamp(14px,1.25vw,22px)/1.2 Inter,sans-serif;min-width:150px}
+.step b{display:block;font-size:1.8em;margin-bottom:8px}
+.arr{font-size:clamp(20px,2vw,34px);color:var(--red)}
+.sw{margin-top:22px;font:800 clamp(40px,6vw,110px)/1 Unbounded,Inter,sans-serif;color:var(--red);font-variant-numeric:tabular-nums}
+.sw small{display:block;font:600 14px/1 Inter,sans-serif;letter-spacing:2px;color:var(--mut);text-transform:uppercase;margin-top:10px}
+.slam{font:800 clamp(40px,6vw,110px)/1 Unbounded,Inter,sans-serif;margin-top:26px}
+.slam.show{animation:slam .5s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes slam{0%{opacity:0;transform:scale(2.2);filter:blur(10px)}100%{opacity:1;transform:none;filter:none}}
+
+.flow{align-items:stretch;justify-content:center;gap:0;margin-top:36px}
+.node{border:1px solid var(--line);background:rgba(20,24,33,.92);border-radius:16px;padding:18px 18px;min-width:0;flex:0 1 210px;text-align:left}
+.node b{display:block;font-size:34px;margin-bottom:10px}
+.node span{display:block;font:700 clamp(16px,1.4vw,24px)/1.2 Inter,sans-serif}
+.node small{display:block;color:var(--mut);font:500 14px/1.3 Inter,sans-serif;margin-top:6px}
+.conn{width:clamp(20px,3.5vw,70px);flex:none;align-self:center;height:2px;background:linear-gradient(90deg,rgba(255,59,48,.2),rgba(255,59,48,.9));position:relative}
+.conn::after{content:'';position:absolute;top:-5px;left:0;width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 14px var(--red);animation:run 1.3s linear infinite}
+@keyframes run{to{left:calc(100% - 12px)}}
+.badge{display:inline-block;margin-top:30px;padding:12px 22px;border-radius:999px;background:var(--red);color:#fff;font:800 clamp(16px,1.5vw,26px)/1 Unbounded,Inter,sans-serif}
+.badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+.badges span{border:1px solid rgba(255,176,32,.5);color:var(--amber);border-radius:999px;padding:8px 14px;font:600 14px/1 Inter,sans-serif}
+
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:22px}
+.card{border:1px solid var(--line);background:rgba(20,24,33,.9);border-radius:14px;padding:16px 18px}
+.card b{font-size:26px;display:block;margin-bottom:8px}
+.card span{display:block;font:700 clamp(15px,1.25vw,21px)/1.2 Inter,sans-serif}
+.card small{display:block;color:var(--mut);font:500 13px/1.35 Inter,sans-serif;margin-top:5px}
+.why{margin-top:20px;border-left:3px solid var(--red);padding:4px 0 4px 16px}
+.why div{font:600 clamp(14px,1.2vw,20px)/1.45 Inter,sans-serif}
+.why div::before{content:'→ ';color:var(--red)}
+
+table.cmp{margin:30px auto 0;border-collapse:separate;border-spacing:0;font:600 clamp(14px,1.3vw,22px)/1.2 Inter,sans-serif;min-width:min(80vw,1000px)}
+table.cmp th,table.cmp td{padding:16px 22px;border-bottom:1px solid var(--line);text-align:left}
+table.cmp th{color:var(--mut);font-weight:600;font-size:.8em;letter-spacing:1px;text-transform:uppercase}
+table.cmp td.q,table.cmp th.q{background:rgba(255,59,48,.14);color:#fff}
+table.cmp th.q{color:var(--red);font:800 1em Unbounded,Inter,sans-serif;letter-spacing:2px}
+table.cmp td.no{color:#71717a}
+
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;text-align:left}
+.col{border:1px solid var(--line);background:rgba(20,24,33,.92);border-radius:16px;padding:18px 20px;position:relative}
+.col .n{font:800 13px/1 Inter,sans-serif;color:var(--red);letter-spacing:2px;margin-bottom:10px}
+.col span{display:block;font:700 clamp(16px,1.4vw,24px)/1.2 Inter,sans-serif}
+.col small{display:block;color:var(--mut);font:500 14px/1.35 Inter,sans-serif;margin-top:8px}
+.col.now{border-color:var(--red);box-shadow:0 0 0 1px var(--red) inset}
+.lbl{font:700 13px/1 Inter,sans-serif;letter-spacing:3px;color:var(--mut);text-transform:uppercase;margin-top:30px;text-align:left}
+
+.team{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:24px}
+.mem{border:1px solid var(--line);background:rgba(20,24,33,.92);border-radius:16px;padding:18px}
+.mem .av{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--red),#7f1d1d);display:grid;place-items:center;font:800 20px Unbounded,sans-serif;margin-bottom:12px}
+.mem span{display:block;font:700 clamp(16px,1.3vw,22px)/1.2 Inter,sans-serif}
+.mem em{display:block;font-style:normal;color:var(--red);font:700 13px/1.3 Inter,sans-serif;margin-top:4px;letter-spacing:1px;text-transform:uppercase}
+.mem small{display:block;color:var(--mut);font:500 13px/1.4 Inter,sans-serif;margin-top:8px}
+.mem.ph{border-style:dashed;opacity:.7}
+.asks{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.asks div{border:1px solid var(--line);background:rgba(20,24,33,.88);border-radius:12px;padding:14px 18px;font:600 clamp(14px,1.25vw,21px)/1.2 Inter,sans-serif}
+.asks b{color:var(--red);margin-right:8px}
+.final{font:800 clamp(30px,4vw,76px)/1.05 Unbounded,Inter,sans-serif;margin-top:30px}
+.contact{margin-top:16px;color:var(--mut);font:600 15px/1 Inter,sans-serif;letter-spacing:1px}
+
+/* incidents on map */
+.inc{position:relative;width:22px;height:22px;cursor:pointer}
+.inc .pulse{position:absolute;inset:0;border-radius:50%;background:rgba(255,59,48,.55);animation:pulse 1.6s ease-out infinite}
+.inc .core{position:absolute;inset:5px;border-radius:50%;background:var(--red);border:2px solid #fff;box-shadow:0 0 18px var(--red);animation:pop .55s cubic-bezier(.2,1.7,.4,1)}
+.inc .tag{position:absolute;left:28px;top:-4px;white-space:nowrap;background:rgba(10,12,18,.92);color:#fff;font:700 13px/1.2 Inter,sans-serif;padding:5px 9px;border-radius:7px;border-left:3px solid var(--red);animation:tagin .5s .15s both}
+.inc.closed .core{background:#6b7280;box-shadow:none}
+.inc.closed .pulse{display:none}
+.inc.closed .tag{border-left-color:#6b7280;color:#d1d5db}
+@keyframes pulse{0%{transform:scale(.6);opacity:.95}100%{transform:scale(3.6);opacity:0}}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+@keyframes tagin{0%{opacity:0;transform:translateX(-8px)}100%{opacity:1;transform:none}}
+.sq{font:700 12px/1 Inter,sans-serif;color:#e5e7eb;background:rgba(10,12,18,.7);border:1px solid rgba(255,255,255,.25);border-radius:4px;padding:3px 6px;pointer-events:none}
+
+.toast{position:absolute;left:50%;top:64px;transform:translateX(-50%);z-index:35;background:var(--red);color:#fff;font:800 clamp(16px,1.6vw,26px)/1.2 Inter,sans-serif;padding:14px 22px;border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5);display:none;max-width:80vw;text-align:center}
+.toast.show{display:block;animation:tin .3s ease-out}
+.toast.ok{background:#15803d}
+@keyframes tin{from{transform:translate(-50%,-14px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+
+/* live demo panel */
+#demo{position:absolute;right:22px;top:56px;bottom:22px;width:min(400px,34vw);z-index:25;display:none;flex-direction:column;gap:10px;background:rgba(10,12,18,.92);border:1px solid var(--line);border-radius:16px;padding:16px;cursor:auto}
+#demo.on{display:flex;animation:panin .6s cubic-bezier(.2,.85,.2,1)}
+@keyframes panin{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+.dhead{display:flex;justify-content:space-between;align-items:center;font:600 12px/1.2 Inter,sans-serif;color:var(--mut)}
+.live{display:inline-flex;align-items:center;gap:8px;font:800 13px/1 Inter,sans-serif;letter-spacing:2px;color:#fff;background:var(--red);padding:6px 10px;border-radius:6px}
+.live i{width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1s infinite}
+.drow{display:flex;gap:10px;align-items:center}
+.mic{width:62px;height:62px;border-radius:50%;border:2px solid #52525b;background:#18181b;color:#fff;font-size:26px;cursor:pointer;flex:none}
+.mic.on{background:var(--red);border-color:#fecaca;animation:micp 1.4s infinite}
+@keyframes micp{0%{box-shadow:0 0 0 0 rgba(255,59,48,.6)}100%{box-shadow:0 0 0 18px rgba(255,59,48,0)}}
+.heardbox{flex:1;min-width:0;background:#0b0d12;border:1px solid #27272a;border-radius:10px;padding:8px 10px}
+.heardbox small,.parsed small{display:block;color:var(--mut);font:600 10px/1 Inter,sans-serif;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+#heard{font:600 15px/1.3 Inter,sans-serif;min-height:20px}
+.parsed{font:600 14px/1.35 Inter,sans-serif;padding:0 2px}
+.parsed.err{color:#fca5a5}
+input[type=text],select{background:#0b0d12;color:#f4f4f5;border:1px solid #3f3f46;border-radius:8px;padding:9px 10px;font:500 13px Inter,sans-serif}
+input[type=text]{flex:1;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{font:500 11px/1.2 Inter,sans-serif;border:1px dashed #52525b;color:#d4d4d8;border-radius:999px;padding:5px 9px;cursor:pointer}
+.chips span:hover{border-color:var(--red)}
+.feed{flex:1;overflow:auto;display:flex;flex-direction:column;gap:7px;min-height:60px}
+.fi{background:#111318;border:1px solid #27272a;border-left:4px solid var(--red);border-radius:8px;padding:8px 10px;font:500 12px/1.35 Inter,sans-serif;cursor:pointer}
+.fi.closed{border-left-color:#6b7280;opacity:.6}
+.fi b{font-size:13px}
+.fi .m{color:#d4d4d8}
+.fi .qq{color:var(--mut);font-style:italic}
+.empty{color:#71717a;font:500 12px/1.4 Inter,sans-serif;text-align:center;padding:14px}
+.dfoot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font:500 12px Inter,sans-serif;color:#d4d4d8}
+button.b{background:#18181b;color:#f4f4f5;border:1px solid #3f3f46;border-radius:8px;padding:8px 10px;font:600 12px Inter,sans-serif;cursor:pointer}
+button.b:hover{border-color:#71717a}
+button.b:disabled{opacity:.5}
+
+/* ops panel (сценарии) */
+#ops{position:absolute;right:22px;top:56px;bottom:22px;width:min(420px,35vw);z-index:25;display:none;flex-direction:column;gap:10px;background:rgba(10,12,18,.93);border:1px solid var(--line);border-radius:16px;padding:16px;cursor:auto}
+#ops.on{display:flex;animation:panin .6s cubic-bezier(.2,.85,.2,1)}
+.okpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.okpi div{background:#0b0d12;border:1px solid #27272a;border-radius:10px;padding:8px 10px}
+.okpi small{display:block;color:var(--mut);font:600 10px/1 Inter,sans-serif;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+.okpi b{font:800 22px/1 Unbounded,Inter,sans-serif;font-variant-numeric:tabular-nums}
+.okpi b.r{color:var(--red)}
+.obtns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.obtns button{display:flex;align-items:center;gap:8px;text-align:left;background:#15171d;color:#f4f4f5;border:1px solid #3f3f46;border-radius:10px;padding:10px;font:700 13px/1.2 Inter,sans-serif;cursor:pointer;transition:all .2s}
+.obtns button:hover{border-color:var(--red);background:#1d1013}
+.obtns button i{font-style:normal;font-size:18px}
+.obtns button kbd{margin-left:auto;font:600 10px Inter,sans-serif;color:var(--mut);border:1px solid #3f3f46;border-radius:4px;padding:1px 5px}
+.obtns button.done{border-color:#15803d;background:rgba(21,128,61,.2)}
+.osec{color:var(--mut);font:700 10px/1 Inter,sans-serif;letter-spacing:1.5px;text-transform:uppercase}
+.oi{display:flex;gap:8px;align-items:flex-start;background:#111318;border:1px solid #27272a;border-radius:8px;padding:7px 9px;font:500 12px/1.35 Inter,sans-serif}
+.oi .sv{flex:none;font:800 9px/1 Inter,sans-serif;letter-spacing:1px;padding:4px 6px;border-radius:4px;background:#7f1d1d;color:#fecaca}
+.oi .sv.s2{background:#78350f;color:#fde68a}
+.oi .sv.s1{background:#27272a;color:#d4d4d8}
+.oi .sv.ok{background:#14532d;color:#bbf7d0}
+.oi .st{margin-left:auto;flex:none;color:var(--mut);font-size:11px}
+.oi.fresh{animation:fresh 1s ease-out}
+@keyframes fresh{from{background:#4a0f0f}to{background:#111318}}
+.oi.closed{opacity:.5}
+.olog{max-height:22%;overflow:auto;border-top:1px solid #27272a;padding-top:8px;display:flex;flex-direction:column;gap:4px;font:500 11.5px/1.35 Inter,sans-serif;color:#d4d4d8}
+.olog div b{color:#4ade80;margin-right:6px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px;font:600 13px Inter,sans-serif;color:#d4d4d8}
+.legend span::before{content:'';display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.inc.own .core{background:#38bdf8;box-shadow:0 0 18px #38bdf8}
+.inc.own .pulse{background:rgba(56,189,248,.45)}
+.inc.own .tag{border-left-color:#38bdf8}
+/* notes + help */
+#notes{position:absolute;left:0;right:0;bottom:0;z-index:45;background:rgba(0,0,0,.9);border-top:1px solid var(--line);padding:14px 24px;font:500 17px/1.45 Inter,sans-serif;color:#fde68a;display:none}
+#notes.on{display:block}
+#help{position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.85);display:none;place-items:center}
+#help.on{display:grid}
+#help div{background:#111318;border:1px solid var(--line);border-radius:16px;padding:24px 30px;font:500 15px/1.9 Inter,sans-serif}
+#help b{display:inline-block;min-width:150px;color:var(--red)}
+#mapErr{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:36;background:rgba(127,29,29,.92);color:#fff;border-radius:10px;padding:8px 12px;font:500 13px Inter,sans-serif;display:none}
+@media (max-width:900px){.box{width:86vw}.cards,.cols{grid-template-columns:1fr}#demo{width:auto;left:12px;top:auto;height:50%}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="map"></div>
+  <div id="shL" class="sh"></div><div id="shF" class="sh"></div><div id="shD" class="sh"></div><div id="shC" class="sh"></div>
+  <div id="vign"></div>
+  <div id="prog"></div>
+  <div id="brand">QYR<b>A</b>N</div>
+  <div id="pageN"></div>
+  <div id="toast" class="toast"></div>
+  <div id="mapErr"></div>
+
+  <div id="slides">
+
+    <!-- 0 · Обложка -->
+    <section class="slide center" data-shade="C" data-notes="Это экран ожидания. Пока жюри рассаживается, карта медленно вращается. Когда объявят — нажмите → и сразу начинайте, без «здравствуйте».">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Defense Tech Hub × MOST Property · Pitch Competition</div>
+        <div class="a logo" style="--d:1">QYRAN</div>
+        <div class="a sub" style="--d:3">голос → оперативная 3D-карта</div>
+        <div class="a hint" style="--d:5">нажмите → чтобы начать</div>
+      </div></div>
+    </section>
+
+    <!-- 1 · Город и угрозы -->
+    <section class="slide" data-shade="L" data-notes="Молчите 2–3 секунды, пусть камера летит. «Это Алматы. Больше двух миллионов человек.» Когда появятся точки: «Дроны. Пожары. Землетрясения. Диверсии. И почти всё это сначала звучит голосом — по рации».">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Алматы · 43.24° N · 76.94° E</div>
+        <h1 class="a" style="--d:1">Город, в котором живут<br><span class="red" id="popN">0</span> человек</h1>
+        <div class="threatwords">
+          <span class="a" style="--d:24">Дроны.</span><span class="a" style="--d:28">Пожары.</span><span class="a" style="--d:32">Землетрясения.</span><span class="a red" style="--d:36">Диверсии.</span>
+        </div>
+        <div class="a chip" style="--d:40"><i class="dot"></i>на карте: <b id="thrN">0</b> инцидентов</div>
+      </div></div>
+    </section>
+
+    <!-- 2 · Зенкова 24 -->
+    <section class="slide" data-shade="L" data-notes="«А теперь — здесь. Зенкова, 24. Здание, в котором вы сейчас сидите.» Нажмите → : побежит текст рации и над зданием появится дрон. «Вот так это выглядит. Через минуту покажу вживую.» Ещё → : вопрос залу, пауза.">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:6">Зенкова, 24 · Дом офицеров · Defense Tech Hub</div>
+        <h1 class="a" style="--d:8">А теперь —<br><span class="red">здесь.</span></h1>
+        <p class="a sub" style="--d:11" data-fh="1">Здание, в котором вы сейчас сидите.</p>
+        <div class="f bubble" data-f="1"><div class="bh">🎙 РАЦИЯ · КАНАЛ 2</div><div class="bt" id="typeTx"></div></div>
+        <p class="f sub" data-f="1" style="--d:22">Вот так это выглядит. Через минуту покажу вживую — голосом.</p>
+        <h2 class="f q" data-f="2">А сколько времени нужно штабу <span class="red">сегодня</span>, чтобы увидеть это на карте?</h2>
+      </div></div>
+    </section>
+
+    <!-- 3 · Проблема -->
+    <section class="slide center" data-shade="F" data-notes="«Сегодня между рацией и картой стоит человек. Услышать, записать, найти квадрат, передать.» Секундомер тикает сам. → : «А если докладов десять одновременно? Карта отстаёт от реальности».">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Как это работает сейчас</div>
+        <h1 class="a" style="--d:1">Между рацией и картой —<br><span class="red">человек</span></h1>
+        <div class="chain">
+          <div class="a step" style="--d:4"><b>📻</b>Доклад по рации</div><div class="a arr" style="--d:6">→</div>
+          <div class="a step" style="--d:8"><b>✍️</b>Записать</div><div class="a arr" style="--d:10">→</div>
+          <div class="a step" style="--d:12"><b>🗺️</b>Найти квадрат</div><div class="a arr" style="--d:14">→</div>
+          <div class="a step" style="--d:16"><b>📞</b>Передать командиру</div>
+        </div>
+        <div class="a sw" style="--d:3" data-fh="1"><span id="sw">00:00.0</span><small>ручной цикл идёт…</small></div>
+        <div class="f slam" data-f="1">×10 <span class="red">докладов</span> одновременно</div>
+        <p class="f sub" data-f="1" style="--d:4">Карта отстаёт от реальности. Командир видит обстановку с опозданием.</p>
+      </div></div>
+    </section>
+
+    <!-- 4 · Решение -->
+    <section class="slide center" data-shade="F" data-notes="«Мы — Qyran. Қыран — беркут: видит всё с высоты и реагирует первым. Ты говоришь — карта видит.» → : схема. «Голос на казахском или русском, ИИ понимает доклад, точка на 3D-карте. Около секунды». Следующий слайд — живое демо.">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Решение</div>
+        <div class="a logo" style="--d:1">QYRAN</div>
+        <h2 class="a" style="--d:3">Ты говоришь — <span class="red">карта видит.</span></h2>
+        <p class="a sub" style="--d:5" data-fh="1">Қыран — беркут. Видит всё с высоты и реагирует первым.</p>
+        <div class="f flexrow flow" data-f="1">
+          <div class="node"><b>🎙</b><span>Голос</span><small>казахский · русский<br>рация · телефон</small></div>
+          <div class="conn"></div>
+          <div class="node"><b>🧠</b><span>ИИ понимает</span><small>что · где · куда<br>сколько · высота</small></div>
+          <div class="conn"></div>
+          <div class="node"><b>📍</b><span>3D-карта</span><small>точка · курс<br>прогноз · алерт</small></div>
+        </div>
+        <div class="f badge" data-f="1" style="--d:5">≈ 1 секунда вместо ручного цикла</div>
+      </div></div>
+    </section>
+
+    <!-- 5 · LIVE демо -->
+    <section class="slide" data-shade="D" data-notes="Нажмите M и говорите медленно: «Квадрат 7, дрон, идёт на север, высота 150». Потом «Два дрона над Кок-Тобе, курс на площадь Республики». Потом «Возгорание у ТЭЦ». В конце «Цель в квадрате 7 уничтожена». Если микрофон подвёл — нажмите D (авто-демо). Дальше → .">
+      <div class="box" style="width:min(36vw,640px)"><div class="inner">
+        <div class="a kick" style="--d:0">Live · голос → карта</div>
+        <h1 class="a" style="--d:1" style="font-size:clamp(30px,3.6vw,70px)">Говорю —<br><span class="red">и это уже<br>на карте.</span></h1>
+        <p class="a sub" style="--d:3">Без мышки. Без клавиатуры. Без ручного ввода.</p>
+      </div></div>
+    </section>
+
+    <!-- 5a · Угроза в здании -->
+    <section class="slide" data-shade="D" data-notes="«А если угроза внутри здания? Например, вот этого — Зенкова, 24.» Доклады сами раскладываются по этажам. Нажимайте 1 → 2 → 3 → 4: периметр, эвакуация, группа реагирования, скорая. 5 — дрон-разведка, 6 — оповещение района. «Каждое решение — один клик, и все видят одну картину».">
+      <div class="box" style="width:min(36vw,640px)"><div class="inner">
+        <div class="a kick" style="--d:0">Сценарий · угроза в здании · Зенкова, 24</div>
+        <h1 class="a" style="--d:1;font-size:clamp(28px,3.4vw,66px)">Угроза внутри.<br><span class="red">Каждый этаж — на экране.</span></h1>
+        <p class="a sub" style="--d:3">Доклады раскладываются по этажам. Решение — в один клик.</p>
+        <div class="a legend" style="--d:5"><span style="--c:#ff3b30">вооружённые</span><span style="--c:#ffb020">заложники</span><span style="--c:#fde68a">люди в здании</span><span style="--c:#22c55e">эвакуированы</span><span style="--c:#38bdf8">свои силы</span></div>
+      </div></div>
+    </section>
+
+    <!-- 5b · Боевые действия -->
+    <section class="slide" data-shade="D" data-notes="«А теперь не город, а передовая. Докладов — десятки в минуту.» Подождите 15–20 секунд, пусть лента забьётся. Потом: 1 — сводка ИИ, 2 — медэвакуация, 3 — цели передать ПВО, 6 — восстановить связь. «Ни один доклад не потерялся. Командир решает, а не записывает».">
+      <div class="box" style="width:min(36vw,640px)"><div class="inner">
+        <div class="a kick" style="--d:0">Сценарий · боевые действия (учебный)</div>
+        <h1 class="a" style="--d:1;font-size:clamp(28px,3.4vw,66px)">Десятки докладов в минуту.<br><span class="red">Ни один не теряется.</span></h1>
+        <p class="a sub" style="--d:3">ИИ сортирует по угрозе. Командир решает, а не записывает.</p>
+        <div class="a legend" style="--d:5"><span style="--c:#ff3b30">угрозы и доклады</span><span style="--c:#38bdf8">свои позиции</span><span style="--c:#ffb020">линия соприкосновения</span><span style="--c:#22c55e">маршруты эвакуации</span></div>
+      </div></div>
+    </section>
+
+    <!-- 6 · Как работает -->
+    <section class="slide center" data-shade="F" data-notes="«Мы не меняем рации. Шлюз подключается к текущей связи, речь распознаётся, ИИ вытаскивает факты, всё уходит на карту и в Telegram. В продукте всё работает на сервере заказчика».">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Как это работает</div>
+        <h1 class="a" style="--d:1">Надстройка над связью,<br>которая <span class="red">уже есть</span></h1>
+        <div class="flexrow flow" style="display:flex;flex-wrap:wrap">
+          <div class="a node" style="--d:4"><b>📻</b><span>Рация / телефон</span><small>текущая связь</small></div><div class="a conn" style="--d:5"></div>
+          <div class="a node" style="--d:6"><b>🔌</b><span>Шлюз</span><small>собираем в FabLab</small></div><div class="a conn" style="--d:7"></div>
+          <div class="a node" style="--d:8"><b>🗣</b><span>Распознавание</span><small>kk · ru · радиоэфир</small></div><div class="a conn" style="--d:9"></div>
+          <div class="a node" style="--d:10"><b>🧠</b><span>ИИ-разбор</span><small>что · где · куда</small></div><div class="a conn" style="--d:11"></div>
+          <div class="a node" style="--d:12"><b>🗺</b><span>Карта · Telegram</span><small>лента · алерты</small></div>
+        </div>
+        <div class="a badges" style="--d:15"><span>On-prem</span><span>Без внешних облаков</span><span>Журнал всех докладов</span><span>Казахский язык</span></div>
+      </div></div>
+    </section>
+
+    <!-- 7 · Кому нужно -->
+    <section class="slide" data-shade="L" data-notes="«Это нужно всем, кто принимает доклады голосом и решает по карте.» → : «Почему Казахстан» — три пункта.">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Кому нужно</div>
+        <h1 class="a" style="--d:1" data-fh="1">Всем, кто слышит —<br>и должен <span class="red">увидеть</span></h1>
+        <div class="cards">
+          <div class="a card" style="--d:4"><b>🚒</b><span>МЧС и экстренные службы</span><small>пожары, ЧС, землетрясения</small></div>
+          <div class="a card" style="--d:5"><b>⚡</b><span>Критическая инфраструктура</span><small>энергетика, нефтегаз, транспорт</small></div>
+          <div class="a card" style="--d:6"><b>🛡</b><span>Силовые структуры</span><small>охрана объектов, погранслужба</small></div>
+          <div class="a card" style="--d:7"><b>🏙</b><span>Ситуационные центры</span><small>акиматы городов</small></div>
+        </div>
+        <div class="f why" data-f="1">
+          <div class="kick" style="margin:0 0 6px">Почему Казахстан</div>
+          <div>Голосовых систем под казахский язык и радиоэфир — единицы</div>
+          <div>Госзаказчику нужен on-prem и данные внутри страны</div>
+          <div>Угроза дронов для инфраструктуры растёт во всём мире</div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 8 · Сравнение -->
+    <section class="slide center" data-shade="F" data-notes="«ГИС — это карта. Мы — это ввод в карту. И мы можем встроиться в ГИС, которая у заказчика уже есть».">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Чем отличаемся</div>
+        <h1 class="a" style="--d:1">ГИС — это карта.<br><span class="red">Мы — ввод в карту.</span></h1>
+        <table class="cmp a" style="--d:4">
+          <tr><th></th><th>Бумажная карта</th><th>Обычная ГИС</th><th class="q">QYRAN</th></tr>
+          <tr><td>Ввод</td><td class="no">ручной</td><td class="no">мышью</td><td class="q">голосом</td></tr>
+          <tr><td>Казахский язык</td><td class="no">—</td><td class="no">—</td><td class="q">да</td></tr>
+          <tr><td>Текущие рации</td><td class="no">—</td><td class="no">—</td><td class="q">через шлюз</td></tr>
+          <tr><td>Курс и прогноз</td><td class="no">—</td><td class="no">вручную</td><td class="q">автоматически</td></tr>
+          <tr><td>Развёртывание</td><td class="no">—</td><td class="no">облако / сервер</td><td class="q">on-prem</td></tr>
+        </table>
+      </div></div>
+    </section>
+
+    <!-- 9 · Модель и план -->
+    <section class="slide center" data-shade="F" data-notes="«Начинаем с пилота на одном объекте, дальше годовая лицензия плюс внедрение. MVP уже работает — вы его только что видели».">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Деньги и план</div>
+        <h1 class="a" style="--d:1">Пилот → <span class="red">лицензия</span> → масштаб</h1>
+        <div class="cols">
+          <div class="a col" style="--d:3"><div class="n">01 · ПИЛОТ</div><span>Один объект</span><small>бесплатно или недорого, 1–2 месяца, доказываем скорость</small></div>
+          <div class="a col" style="--d:4"><div class="n">02 · ЛИЦЕНЗИЯ</div><span>За пульт или объект в год</span><small>подписка на ПО + обновления моделей</small></div>
+          <div class="a col" style="--d:5"><div class="n">03 · ВНЕДРЕНИЕ</div><span>Шлюзы и интеграция</span><small>подключение раций, обучение, поддержка</small></div>
+        </div>
+        <div class="a lbl" style="--d:7">Дорожная карта</div>
+        <div class="cols">
+          <div class="a col now" style="--d:8"><div class="n">СЕЙЧАС</div><span>Работающий MVP</span><small>голос → 3D-карта в реальном времени</small></div>
+          <div class="a col" style="--d:9"><div class="n">1–3 МЕСЯЦА</div><span>On-prem ИИ и шлюз</span><small>Telegram-алерты, шлюз к рации в FabLab</small></div>
+          <div class="a col" style="--d:10"><div class="n">3–6 МЕСЯЦЕВ</div><span>Пилот с заказчиком</span><small>камеры и датчики как новые источники</small></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 10 · Команда -->
+    <section class="slide" data-shade="L" data-notes="Коротко: кто вы и почему именно вы это сделаете. Упомяните хакатоны.">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Команда</div>
+        <h1 class="a" style="--d:1">Мы уже <span class="red">собрали</span> это.<br>За неделю.</h1>
+        <div class="team" id="team"></div>
+      </div></div>
+    </section>
+
+    <!-- 11 · Просьба и финал -->
+    <section class="slide center bottom" data-shade="C" data-notes="«Нам нужно три вещи: пилот, FabLab и ментор.» Пауза. Финальная фраза медленно: «Qyran. Ты говоришь — карта видит». Спасибо.">
+      <div class="box"><div class="inner">
+        <div class="a kick" style="--d:0">Что нам нужно</div>
+        <div class="asks">
+          <div class="a" style="--d:2"><b>01</b>Пилот с одним заказчиком</div>
+          <div class="a" style="--d:3"><b>02</b>Almaty FabLab — шлюз к рациям</div>
+          <div class="a" style="--d:4"><b>03</b>Ментор из отрасли</div>
+        </div>
+        <div class="a final" style="--d:7">QYRAN. Ты говоришь —<br><span class="red">карта видит.</span></div>
+        <div class="a contact" style="--d:9" id="contact"></div>
+      </div></div>
+    </section>
+
+  </div>
+
+  <aside id="demo">
+    <div class="dhead"><span class="live"><i></i>LIVE</span><span id="micState">M — микрофон</span></div>
+    <div class="drow"><button id="micBtn" class="mic" title="Микрофон (M)">🎙</button><div class="heardbox"><small>Услышано</small><div id="heard">—</div></div></div>
+    <div id="parsed" class="parsed"><small>Распознано</small>—</div>
+    <div class="drow"><input id="cmd" type="text" placeholder="Команда текстом + Enter"><select id="lang" title="Язык"><option value="ru-RU">RU</option><option value="kk-KZ">KZ</option></select></div>
+    <div id="chips" class="chips"></div>
+    <div id="feed" class="feed"></div>
+    <div class="dfoot"><button id="demoBtn" class="b">▶ Авто-демо (D)</button><button id="resetBtn" class="b">Сброс (R)</button><label><input id="tts" type="checkbox" checked> голосовой ответ</label></div>
+  </aside>
+
+  <aside id="ops">
+    <div class="dhead"><span class="live"><i></i><span id="opsTitle">LIVE</span></span><span id="opsSub"></span></div>
+    <div id="opsKpi" class="okpi"></div>
+    <div class="osec">Действия · клавиши 1–6</div>
+    <div id="opsBtns" class="obtns"></div>
+    <div class="osec">Доклады · по приоритету</div>
+    <div id="opsList" class="feed"></div>
+    <div id="opsLog" class="olog"></div>
+  </aside>
+
+  <div id="notes"></div>
+  <div id="help"><div>
+    <b>→ / Пробел / PgDn</b>далее<br>
+    <b>← / PgUp</b>назад<br>
+    <b>F</b>полный экран<br>
+    <b>N</b>заметки спикера<br>
+    <b>M</b>микрофон (на слайде LIVE)<br>
+    <b>D</b>авто-демо (на слайде LIVE)<br>
+    <b>R</b>сброс инцидентов<br>
+    <b>S</b>звук вкл/выкл<br>
+    <b>Home</b>в начало<br>
+    <b>H</b>эта подсказка
+  </div></div>
+  <div id="wipe"><i></i></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ================== НАСТРОЙКИ (меняйте здесь) ==================
+var CONFIG = {
+  team: [
+    {name:'Ералы Абуталифулы', role:'Backend & ML', info:'Python · FastAPI · Django · КБТУ. Хакатоны: Flavor Tree (OneIdea 2026), InVision U (Decentrathon 5.0)'},
+    {name:'[Участник 2]', role:'[роль]', info:'Замените в CONFIG.team в начале скрипта', ph:true},
+    {name:'[Участник 3]', role:'[роль]', info:'Или удалите эту карточку', ph:true}
+  ],
+  contact: 'github.com/overloooooord',
+  styleUrl: 'https://tiles.openfreemap.org/styles/dark',
+  styleFallback: 'https://tiles.openfreemap.org/styles/liberty'
+};
+
+// ================== ГЕОГРАФИЯ ==================
+var BLD = [[76.9568382,43.2581316],[76.9570873,43.2581451],[76.9574048,43.2586556],[76.9574209,43.2586902],[76.9574298,43.258724],[76.9574338,43.258753],[76.9574351,43.2587849],[76.9574016,43.2590176],[76.9573922,43.2590834],[76.9573754,43.2592006],[76.9573316,43.2595054],[76.9573019,43.259779],[76.9572494,43.2602107],[76.9570267,43.2601953],[76.957032,43.2601509],[76.9570574,43.2599381],[76.9570747,43.259793],[76.9570782,43.2597637],[76.9571119,43.2594889],[76.9571538,43.2591844],[76.9571695,43.2590702],[76.9571793,43.2589993],[76.9572078,43.2587926],[76.9572085,43.2587707],[76.9572059,43.2587482],[76.9571983,43.2587222],[76.9568382,43.2581316]];
+var BLD_C = [76.95727,43.25913];
+var B = {n:43.335, s:43.185, w:76.835, e:77.035};
+var G = 4, DX = (B.e-B.w)/G, DY = (B.n-B.s)/G;
+var CENTER = [76.9455,43.2385];
+
+var LANDMARKS = [
+  {name:'Зенкова, 24 (Defense Tech Hub)', c:BLD_C, keys:['зенков','defense tech','дефенс тех','хаб','дом офицер','офицер']},
+  {name:'Кок-Тобе', c:[76.9765,43.2330], keys:['кок тобе','коктобе','көктөбе','кок тюбе']},
+  {name:'Медеу', c:[77.0590,43.1575], keys:['медеу']},
+  {name:'Аэропорт Алматы', c:[77.0405,43.3520], keys:['аэропорт','әуежай','аэродром']},
+  {name:'Esentai Mall', c:[76.9275,43.2180], keys:['есентай','esentai']},
+  {name:'Площадь Республики', c:[76.9455,43.2385], keys:['площадь республики','площади республики','республик','центр']},
+  {name:'Вокзал Алматы-1', c:[76.9497,43.3418], keys:['алматы 1','алматы один','алматы первый','вокзал 1','первый вокзал']},
+  {name:'Вокзал Алматы-2', c:[76.9415,43.2725], keys:['алматы 2','алматы два','алматы второй','вокзал 2','второй вокзал','вокзал']},
+  {name:'ТЭЦ', c:[76.8450,43.3000], keys:['тэц','электростанц']},
+  {name:'КБТУ', c:[76.9440,43.2555], keys:['кбту','толе би']},
+  {name:'Парк 28 панфиловцев', c:[76.9555,43.2585], keys:['панфилов']},
+  {name:'MEGA Alma-Ata', c:[76.9280,43.2025], keys:['мега']},
+  {name:'Озеро Сайран', c:[76.8710,43.2420], keys:['сайран']},
+  {name:'Барахолка', c:[76.8550,43.2650], keys:['барахолк']},
+  {name:'БАО', c:[76.9850,43.0510], keys:['бао','большое алматинское','большого алматинского','үлкен алматы']}
+];
+var TYPES = [
+  {id:'explosion', l:'Взрыв', speed:0, k:['взрыв','взорв','детонац','жарылыс']},
+  {id:'shooting', l:'Стрельба', speed:0, k:['стрельб','выстрел','стреля','перестрел','атыс']},
+  {id:'uav', l:'БПЛА', speed:45, k:['дрон','бпла','беспилот','коптер','шахед','ұшқышсыз','пилотсыз','летательн']},
+  {id:'fire', l:'Пожар', speed:0, k:['пожар','возгоран','горит','огонь','задымлен',' дым ','өрт','түтін']},
+  {id:'crash', l:'ДТП', speed:0, k:['дтп','авари','столкнов','апат']},
+  {id:'vehicle', l:'Техника', speed:18, k:['колонн','техник','бтр','танк','бронемаш','грузовик','машин','көлік']},
+  {id:'person', l:'Подозрительные лица', speed:6, k:['подозрит','диверс','нарушител','вооруж','человек','люд','групп','адам']}
+];
+var OTHER = {id:'other', l:'Происшествие', speed:0, k:[]};
+var TYPEMAP = {other:OTHER};
+TYPES.forEach(function(t){ TYPEMAP[t.id] = t; });
+var DIRS = [
+  {l:'северо-восток', b:45, k:['северо восток','северовосток','солтүстік шығыс']},
+  {l:'северо-запад', b:315, k:['северо запад','северозапад','солтүстік батыс']},
+  {l:'юго-восток', b:135, k:['юго восток','юговосток','оңтүстік шығыс']},
+  {l:'юго-запад', b:225, k:['юго запад','югозапад','оңтүстік батыс']},
+  {l:'север', b:0, k:['север','солтүстік']},
+  {l:'юг', b:180, k:['юг ','юга ','югу ','южн','оңтүстік']},
+  {l:'восток', b:90, k:['восток','восточ','шығыс']},
+  {l:'запад', b:270, k:['запад','батыс']}
+];
+var CLOSE_K = ['отбой','уничтож','нейтрализ','поражен','ликвидир','закрыть инцидент','инцидент закрыт','сбит','сбили','потушен','жойылды'];
+var MARKERS_T = [' в сторону ',' курсом на ',' курс на ',' направляется к ',' направляется в ',' направляются к ',' движется к ',' движутся к ',' летит к ',' летят к ',' идет к ',' идут к '];
+var NUM_PREFIX = [['одиннадц',11],['двенадц',12],['тринадц',13],['четырнадц',14],['пятнадц',15],['шестнадц',16],
+  ['один',1],['одн',1],['перв',1],['два',2],['две',2],['втор',2],['три',3],['трет',3],['четыр',4],['четв',4],
+  ['пят',5],['шест',6],['седьм',7],['сем',7],['восьм',8],['восем',8],['девят',9],['десят',10],
+  ['бір',1],['екі',2],['үш',3],['төрт',4],['бес',5],['алты',6],['жеті',7],['сегіз',8],['тоғыз',9]];
+
+var THREATS = [
+  {t:'uav', c:[76.8450,43.3000], l:'БПЛА · у ТЭЦ', h:115, sp:40},
+  {t:'fire', c:[76.8550,43.2650], l:'Пожар · Барахолка'},
+  {t:'uav', c:[77.0405,43.3520], l:'Дрон · зона аэропорта', h:215, sp:40},
+  {t:'other', c:[76.9497,43.3418], l:'Подозрительный предмет · Алматы-1'},
+  {t:'crash', c:[76.8900,43.2200], l:'ДТП · есть пострадавшие'},
+  {t:'person', c:[76.9275,43.2180], l:'Скопление людей · Esentai'},
+  {t:'other', c:[76.9900,43.1850], l:'Подземные толчки · предгорья'}
+];
+
+// ================== УТИЛИТЫ ==================
+function $(id){ return document.getElementById(id); }
+function el(tag, cls, text){ var e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+function norm(s){ return String(s).toLowerCase().replace(/ё/g,'е').replace(/[-–—]/g,' ').replace(/[.,!?;:«»"()]/g,' ').replace(/\s+/g,' ').trim(); }
+function wordNum(w){
+  if(!w) return null;
+  if(/^\d+$/.test(w)) return parseInt(w,10);
+  if(w === 'он') return 10;
+  for(var i=0;i<NUM_PREFIX.length;i++){ if(w.indexOf(NUM_PREFIX[i][0]) === 0) return NUM_PREFIX[i][1]; }
+  return null;
+}
+function squareCenter(n){ var r = Math.floor((n-1)/G), c = (n-1)%G; return [B.w+(c+0.5)*DX, B.n-(r+0.5)*DY]; }
+function squareOf(p){ var c = Math.floor((p[0]-B.w)/DX), r = Math.floor((B.n-p[1])/DY); if(c<0||c>=G||r<0||r>=G) return null; return r*G+c+1; }
+function jitter(p, rx, ry){ return [p[0]+(Math.random()-0.5)*2*rx, p[1]+(Math.random()-0.5)*2*ry]; }
+function distM(a,b){ var k = Math.cos(a[1]*Math.PI/180); var dx = (b[0]-a[0])*111320*k, dy = (b[1]-a[1])*110540; return Math.sqrt(dx*dx+dy*dy); }
+function dest(p, brg, m){ var r = brg*Math.PI/180; return [p[0]+m*Math.sin(r)/(111320*Math.cos(p[1]*Math.PI/180)), p[1]+m*Math.cos(r)/110540]; }
+function bearing(a,b){ var dx = (b[0]-a[0])*Math.cos(a[1]*Math.PI/180), dy = b[1]-a[1]; return (Math.atan2(dx,dy)*180/Math.PI+360)%360; }
+function sqPoly(p, m){ var a = m/110540, b = m/(111320*Math.cos(p[1]*Math.PI/180)); return [[[p[0]-b,p[1]-a],[p[0]+b,p[1]-a],[p[0]+b,p[1]+a],[p[0]-b,p[1]+a],[p[0]-b,p[1]-a]]]; }
+function fmtTime(d){ return d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function ease(k){ return 1-Math.pow(1-k,3); }
+function tween(ms, fn, done){ var t0 = performance.now(); function f(now){ var k = Math.min(1,(now-t0)/ms); fn(ease(k)); if(k<1) requestAnimationFrame(f); else if(done) done(); } requestAnimationFrame(f); }
+var timers = [];
+function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
+function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+
+// ================== ЗВУК ==================
+var SOUND = true, actx = null;
+function ac(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } } if(actx.state === 'suspended'){ try{ actx.resume(); }catch(e){} } return actx; }
+function tone(freqs, step, dur, type, gain){
+  if(!SOUND) return; var a = ac(); if(!a) return; var t = a.currentTime;
+  freqs.forEach(function(f,i){ var o = a.createOscillator(), g = a.createGain(); o.type = type||'square'; o.frequency.value = f; var st = t+i*step;
+    g.gain.setValueAtTime(0.0001,st); g.gain.exponentialRampToValueAtTime(gain||0.1,st+0.02); g.gain.exponentialRampToValueAtTime(0.0001,st+dur);
+    o.connect(g); g.connect(a.destination); o.start(st); o.stop(st+dur+0.03); });
+}
+function sAlarm(){ tone([880,620,880,620],0.17,0.15,'square',0.08); }
+function sOk(){ tone([660,880],0.14,0.12,'sine',0.12); }
+function sTick(){ tone([1250],0,0.06,'sine',0.06); }
+function sBoom(){ if(!SOUND) return; var a = ac(); if(!a) return; var t = a.currentTime, o = a.createOscillator(), g = a.createGain(); o.type='sine'; o.frequency.setValueAtTime(140,t); o.frequency.exponentialRampToValueAtTime(40,t+0.8); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.35,t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+0.9); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+0.95); }
+function sWhoosh(){
+  if(!SOUND) return; var a = ac(); if(!a) return;
+  var len = 0.55, buf = a.createBuffer(1, Math.floor(a.sampleRate*len), a.sampleRate), d = buf.getChannelData(0);
+  for(var i=0;i<d.length;i++){ var k = i/d.length; d[i] = (Math.random()*2-1)*Math.sin(Math.PI*k); }
+  var src = a.createBufferSource(); src.buffer = buf; var f = a.createBiquadFilter(); f.type='bandpass'; f.Q.value = 0.9;
+  var t = a.currentTime; f.frequency.setValueAtTime(300,t); f.frequency.exponentialRampToValueAtTime(2600,t+len);
+  var g = a.createGain(); g.gain.value = 0.07; src.connect(f); f.connect(g); g.connect(a.destination); src.start(t);
+}
+var suppressUntil = 0;
+function say(text){
+  if(!$('tts').checked || !window.speechSynthesis) return;
+  try{ window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(text); u.lang = 'ru-RU'; u.rate = 1.05;
+    suppressUntil = Date.now()+15000; u.onend = function(){ suppressUntil = Date.now()+700; }; u.onerror = function(){ suppressUntil = Date.now()+300; };
+    window.speechSynthesis.speak(u); }catch(e){}
+}
+
+// ================== КАРТА ==================
+var map = null, mapReady = false, orbit = null, camTok = 0, pendingCam = null;
+var bldUp = false, ringOn = false, PILLAR_M = 60, gridMarkers = [];
+var EMPTY = {type:'FeatureCollection', features:[]};
+
+function showMapErr(msg){ var e = $('mapErr'); e.textContent = msg; e.style.display = 'block'; }
+function initMap(){
+  if(!window.maplibregl){ document.body.classList.add('nomap'); showMapErr('Карта не загрузилась (нет интернета). Слайды и голосовой разбор работают.'); return; }
+  fetch(CONFIG.styleUrl, {method:'GET'}).then(function(r){ return r.ok ? CONFIG.styleUrl : CONFIG.styleFallback; })
+    .catch(function(){ return CONFIG.styleFallback; }).then(createMap);
+}
+function createMap(style){
+  try{
+    map = new maplibregl.Map({container:'map', style:style, center:[76.94,43.25], zoom:9.3, pitch:0, bearing:0, maxPitch:78, attributionControl:{compact:true}});
+    map.on('load', onLoad);
+    map.on('error', function(e){ if(window.console) console.warn('map error', e && e.error && e.error.message); });
+    setTimeout(function(){ if(!mapReady) showMapErr('Карта грузится долго — проверьте интернет (подойдёт раздача с телефона).'); }, 15000);
+  }catch(e){ document.body.classList.add('nomap'); showMapErr('Ошибка карты: '+e.message); }
+}
+function onLoad(){
+  try{ if(map.setSky) map.setSky({'sky-color':'#0a0f1c','horizon-color':'#1b2333','fog-color':'#0a0f1c','sky-horizon-blend':0.7,'horizon-fog-blend':0.6,'fog-ground-blend':0.3}); }catch(e){}
+  add3D(); addLayers(); addLayers2();
+  mapReady = true;
+  $('mapErr').style.display = 'none';
+  incidents.forEach(function(i){ if(!i.marker) addMarker(i); });
+  if(bldUp) setBuilding(1);
+  if(pendingCam){ var p = pendingCam; pendingCam = null; fly(p.opts, p.orbit); }
+  dirty = true;
+}
+function add3D(){
+  try{
+    var st = map.getStyle();
+    var has = st.layers.some(function(l){ return l.type === 'fill-extrusion'; });
+    if(!has && map.getSource('openmaptiles')){
+      var sym = st.layers.filter(function(l){ return l.type === 'symbol'; })[0];
+      map.addLayer({id:'q-b3d', type:'fill-extrusion', source:'openmaptiles', 'source-layer':'building', minzoom:13,
+        paint:{'fill-extrusion-color':'#2a3344','fill-extrusion-height':['coalesce',['get','render_height'],10],
+               'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':0.92}}, sym ? sym.id : undefined);
+    }
+  }catch(e){ if(window.console) console.warn(e); }
+}
+function gridGeo(){
+  var f = [];
+  for(var r=0;r<G;r++) for(var c=0;c<G;c++){ var x0 = B.w+c*DX, x1 = x0+DX, y0 = B.n-r*DY, y1 = y0-DY;
+    f.push({type:'Feature', properties:{n:r*G+c+1}, geometry:{type:'Polygon', coordinates:[[[x0,y0],[x1,y0],[x1,y1],[x0,y1],[x0,y0]]]}}); }
+  return {type:'FeatureCollection', features:f};
+}
+function addLayers(){
+  map.addSource('grid', {type:'geojson', data:gridGeo()});
+  map.addLayer({id:'grid-hl', type:'fill', source:'grid', filter:['==',['get','n'],-1], layout:{visibility:'none'}, paint:{'fill-color':'#ff3b30','fill-opacity':0.12}});
+  map.addLayer({id:'grid-line', type:'line', source:'grid', layout:{visibility:'none'}, paint:{'line-color':'#e5e7eb','line-width':1,'line-opacity':0.35,'line-dasharray':[2,2]}});
+  for(var n=1;n<=G*G;n++){ var r = Math.floor((n-1)/G), c = (n-1)%G; var d = el('div','sq', 'кв. '+n); d.style.display = 'none';
+    gridMarkers.push(d); new maplibregl.Marker({element:d, anchor:'top-left'}).setLngLat([B.w+c*DX+DX*0.04, B.n-r*DY-DY*0.05]).addTo(map); }
+
+  map.addSource('bld', {type:'geojson', data:{type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:[BLD]}}});
+  map.addLayer({id:'bld-glow', type:'line', source:'bld', paint:{'line-color':'#ff3b30','line-width':10,'line-blur':8,'line-opacity':0}});
+  map.addLayer({id:'bld-x', type:'fill-extrusion', source:'bld', paint:{'fill-extrusion-color':'#ff3b30','fill-extrusion-height':0,'fill-extrusion-base':0,'fill-extrusion-opacity':0.9}});
+  map.addSource('beacon', {type:'geojson', data:{type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:sqPoly(BLD_C, 4)}}});
+  map.addLayer({id:'beacon', type:'fill-extrusion', source:'beacon', paint:{'fill-extrusion-color':'#ff6b5e','fill-extrusion-height':0,'fill-extrusion-base':0,'fill-extrusion-opacity':0.4}});
+  map.addSource('ring', {type:'geojson', data:{type:'Feature', properties:{}, geometry:{type:'Point', coordinates:BLD_C}}});
+  map.addLayer({id:'ring', type:'circle', source:'ring', paint:{'circle-radius':10,'circle-color':'rgba(0,0,0,0)','circle-stroke-color':'#ff3b30','circle-stroke-width':2.5,'circle-stroke-opacity':0,'circle-pitch-alignment':'map'}});
+
+  map.addSource('tracks', {type:'geojson', data:EMPTY});
+  map.addSource('forecast', {type:'geojson', data:EMPTY});
+  map.addSource('pillars', {type:'geojson', data:EMPTY});
+  map.addLayer({id:'tracks', type:'line', source:'tracks', layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color':'#ff3b30','line-width':3.5,'line-opacity':0.9}});
+  map.addLayer({id:'forecast', type:'line', source:'forecast', paint:{'line-color':'#ff3b30','line-width':2,'line-dasharray':[1.5,1.5],'line-opacity':0.75}});
+  map.addLayer({id:'pillars', type:'fill-extrusion', source:'pillars', paint:{'fill-extrusion-color':['case',['==',['get','act'],1],'#ff3b30','#6b7280'],'fill-extrusion-height':['get','h'],'fill-extrusion-base':0,'fill-extrusion-opacity':0.55}});
+}
+function addLayers2(){
+  ['b3d','zone','routes','front'].forEach(function(s){ map.addSource(s, {type:'geojson', data:EMPTY}); });
+  map.addLayer({id:'zone-fill', type:'fill', source:'zone', paint:{'fill-color':'#ff3b30','fill-opacity':0.08}});
+  map.addLayer({id:'zone-line', type:'line', source:'zone', paint:{'line-color':'#ff3b30','line-width':2.5,'line-dasharray':[2,1.5]}});
+  map.addLayer({id:'front', type:'line', source:'front', paint:{'line-color':'#ffb020','line-width':3,'line-dasharray':[3,2],'line-opacity':0.9}});
+  map.addLayer({id:'routes', type:'line', source:'routes', layout:{'line-cap':'round'}, paint:{'line-color':['get','color'],'line-width':3.5,'line-dasharray':[1,1.2]}});
+  map.addLayer({id:'b3d', type:'fill-extrusion', source:'b3d', paint:{'fill-extrusion-color':['get','color'],'fill-extrusion-height':['get','top'],'fill-extrusion-base':['get','base'],'fill-extrusion-opacity':0.9}});
+}
+function setBuilding(k){
+  if(!mapReady) return;
+  map.setPaintProperty('bld-x','fill-extrusion-height', 26*k);
+  map.setPaintProperty('bld-glow','line-opacity', 0.9*k);
+  map.setPaintProperty('beacon','fill-extrusion-height', 600*k);
+}
+function raiseBuilding(){
+  if(mapReady) map.getSource('ring').setData({type:'Feature', properties:{}, geometry:{type:'Point', coordinates:BLD_C}});
+  if(bldUp){ setBuilding(1); ringOn = true; return; }
+  bldUp = true; ringOn = true; sBoom();
+  if(mapReady) tween(1600, setBuilding);
+}
+function showGrid(on){
+  if(!mapReady) return;
+  map.setLayoutProperty('grid-line','visibility', on ? 'visible' : 'none');
+  map.setLayoutProperty('grid-hl','visibility', on ? 'visible' : 'none');
+  gridMarkers.forEach(function(d){ d.style.display = on ? 'block' : 'none'; });
+}
+function fly(opts, orbitSpeed){
+  if(!mapReady){ pendingCam = {opts:opts, orbit:orbitSpeed}; return; }
+  orbit = null; var tok = ++camTok; var d = opts.duration || 3000;
+  var o = {essential:true}; for(var k in opts) o[k] = opts[k];
+  map.flyTo(o);
+  if(orbitSpeed) setTimeout(function(){ if(tok === camTok) orbit = {speed:orbitSpeed}; }, d+200);
+}
+
+// ================== ИНЦИДЕНТЫ ==================
+var incidents = [], seq = 0, dirty = false;
+function tagText(i){ var t = i.label || ('#'+i.id+' '+i.type.l+(i.count ? ' ×'+i.count : '')); return t + (i.active ? '' : ' · закрыт'); }
+function spawn(o){
+  var type = TYPEMAP[o.typeId] || OTHER, c = o.c.slice(), now = performance.now();
+  var sp = o.speed != null ? o.speed : type.speed;
+  var i = {id:++seq, t:new Date(), type:type, loc:{name:o.name||'', c:c}, square:('square' in o) ? o.square : squareOf(c),
+    heading:(o.heading == null ? null : o.heading), dirLabel:o.dirLabel||null, target:o.target||null, count:o.count||null, alt:o.alt||null,
+    raw:o.raw||'', source:o.source||'сценарий', active:true, pos:c.slice(), track:[c.slice()], speed:sp,
+    moving:(o.heading != null && sp > 0), born:now, lastTrack:now, label:o.label||null, own:!!o.own};
+  incidents.push(i); addMarker(i); dirty = true; return i;
+}
+function addMarker(i){
+  if(!mapReady) return;
+  var e = el('div','inc'+(i.own ? ' own' : '')); e.appendChild(el('span','pulse')); e.appendChild(el('span','core'));
+  var t = el('span','tag', tagText(i)); e.appendChild(t);
+  e.addEventListener('click', function(ev){ ev.stopPropagation(); focusInc(i); });
+  i.el = e; i.tagEl = t;
+  i.marker = new maplibregl.Marker({element:e, anchor:'center'}).setLngLat(i.pos).addTo(map);
+}
+function clearIncidents(){
+  incidents.forEach(function(i){ if(i.marker) i.marker.remove(); });
+  incidents = []; seq = 0; dirty = true;
+  if(mapReady){ map.setFilter('grid-hl', ['==',['get','n'],-1]); updateGeo(); }
+  renderFeed();
+}
+function updateGeo(){
+  if(!mapReady) return;
+  var tr = [], fc = [], pl = [];
+  incidents.forEach(function(i){
+    if(i.track.length > 0 && distM(i.track[0], i.pos) > 5) tr.push({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates:i.track.concat([i.pos])}});
+    if(i.active && i.heading != null){ var end = i.target ? i.target.c : dest(i.pos, i.heading, 2500); fc.push({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates:[i.pos, end]}}); }
+    if(i.own) return;
+    var h = i.type.id === 'uav' ? (i.alt || 150) : 70;
+    pl.push({type:'Feature', properties:{h:h, act:i.active ? 1 : 0}, geometry:{type:'Polygon', coordinates:sqPoly(i.pos, PILLAR_M/2)}});
+  });
+  map.getSource('tracks').setData({type:'FeatureCollection', features:tr});
+  map.getSource('forecast').setData({type:'FeatureCollection', features:fc});
+  map.getSource('pillars').setData({type:'FeatureCollection', features:pl});
+}
+function focusInc(i){
+  if(!mapReady) return;
+  orbit = null; camTok++;
+  map.flyTo({center:i.pos, zoom:14.3, pitch:62, bearing:-20, speed:1.3, essential:true});
+  if(i.square) map.setFilter('grid-hl', ['==',['get','n'], i.square]);
+}
+
+// ================== РАЗБОР КОМАНД ==================
+function findLandmark(s){
+  var best = null;
+  LANDMARKS.forEach(function(lm){ lm.keys.forEach(function(k){ var i = s.indexOf(k);
+    if(i>=0 && (!best || k.length>best.k.length || (k.length===best.k.length && i<best.i))) best = {lm:lm, k:k, i:i}; }); });
+  return best;
+}
+function findSquare(s){
+  var m = s.match(/(?:квадрат|сектор|шаршы)[^\s\d]*\s*(?:номер\s*|№\s*)?(\d{1,2})/), n = null;
+  if(m) n = parseInt(m[1],10);
+  else { var w = s.match(/(?:квадрат|сектор|шаршы)\S*\s+(\S+)(?:\s+(\S+))?/);
+    if(w){ n = wordNum(w[1]); if(n === null && w[2]) n = wordNum(w[2]); else if(n === 10 && w[2]){ var u = wordNum(w[2]); if(u && u<10) n = 10+u; } } }
+  return (n && n>=1 && n<=G*G) ? n : null;
+}
+function findDir(p){ for(var i=0;i<DIRS.length;i++){ for(var j=0;j<DIRS[i].k.length;j++){ if(p.indexOf(' '+DIRS[i].k[j]) >= 0) return DIRS[i]; } } return null; }
+function findCount(s){
+  var m = s.match(/(\d+|два|две|двое|три|трое|четыре|пять|несколько|группа|рой|пара)\s+(?:\S+\s+)?(?:дрон|бпла|беспилот|коптер|человек|машин|единиц|бтр|танк|грузовик|нарушител)/);
+  if(!m) return null; var map2 = {'два':'2','две':'2','двое':'2','три':'3','трое':'3','четыре':'4','пять':'5','пара':'2'}; return map2[m[1]] || m[1];
+}
+function parse(raw){
+  var s = norm(raw), p = ' '+s+' ', r = {raw:raw};
+  r.close = CLOSE_K.some(function(k){ return p.indexOf(k) >= 0; });
+  var cut = -1, mlen = 0;
+  MARKERS_T.forEach(function(m){ var i = p.indexOf(m); if(i>=0 && (cut<0 || i<cut)){ cut = i; mlen = m.length; } });
+  var pre = cut>=0 ? p.slice(0,cut)+' ' : p, post = cut>=0 ? ' '+p.slice(cut+mlen) : '';
+  var lm = findLandmark(pre), sq = findSquare(pre);
+  r.loc = null;
+  if(lm) r.loc = {name:lm.lm.name, c:jitter(lm.lm.c, 0.0012, 0.0009)};
+  else if(sq) r.loc = {name:'Квадрат '+sq, c:jitter(squareCenter(sq), DX*0.18, DY*0.18), square:sq};
+  r.target = null;
+  if(post){ var lt = findLandmark(post), st = findSquare(post);
+    if(lt) r.target = {name:lt.lm.name, c:lt.lm.c}; else if(st) r.target = {name:'квадрат '+st, c:squareCenter(st)}; }
+  r.type = null;
+  for(var i=0;i<TYPES.length && !r.type;i++){ if(TYPES[i].k.some(function(k){ return p.indexOf(k) >= 0; })) r.type = TYPES[i]; }
+  var d = findDir(p); r.heading = null; r.dirLabel = null;
+  if(r.target && r.loc){ r.heading = bearing(r.loc.c, r.target.c); r.dirLabel = 'на '+r.target.name; }
+  else if(d){ r.heading = d.b; r.dirLabel = d.l; }
+  var s2 = p.replace(/(?:квадрат|сектор|шаршы)\S*\s+\S+/g,' ').replace(/(?:высот|биіктік)\S*\s+(?:около\s+|примерно\s+)?\S+/g,' ');
+  r.count = findCount(s2);
+  var am = p.match(/(?:высот|биіктік)\S*\s+(?:около\s+|примерно\s+)?(\d+)/); r.alt = am ? parseInt(am[1],10) : null;
+  return r;
+}
+
+// ================== LIVE-ПАНЕЛЬ ==================
+var toastTimer = null;
+function toast(text, ok){ var t = $('toast'); t.textContent = text; t.className = 'toast show'+(ok ? ' ok' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.className = 'toast'; }, 4000); }
+function setParsed(text, err){ var e = $('parsed'); e.className = 'parsed'+(err ? ' err' : ''); e.innerHTML = ''; e.appendChild(el('small', null, 'Распознано')); e.appendChild(document.createTextNode(text)); }
+function renderFeed(){
+  var feed = $('feed'); feed.innerHTML = '';
+  var list = incidents.filter(function(i){ return i.source !== 'сценарий'; });
+  if(!list.length){ feed.appendChild(el('div','empty','Скажите: «Квадрат 7, дрон, идёт на север»')); return; }
+  var act = list.filter(function(i){ return i.active; }).reverse(), cl = list.filter(function(i){ return !i.active; }).reverse();
+  act.concat(cl).forEach(function(i){
+    var c = el('div','fi'+(i.active ? '' : ' closed'));
+    c.appendChild(el('b', null, '#'+i.id+' · '+i.type.l+(i.count ? ' ×'+i.count : '')+(i.active ? '' : ' · закрыт')));
+    c.appendChild(el('div','m', '📍 '+i.loc.name+(i.dirLabel ? ' · ➜ '+i.dirLabel : '')+(i.alt ? ' · ↑'+i.alt+' м' : '')));
+    c.appendChild(el('div','qq', fmtTime(i.t)+' · «'+i.raw+'»'));
+    c.addEventListener('click', function(){ focusInc(i); });
+    feed.appendChild(c);
+  });
+}
+function handleCommand(raw, source){
+  raw = (raw||'').trim(); if(!raw) return;
+  $('heard').textContent = raw;
+  var r = parse(raw);
+  if(r.close){ closeFor(r); return; }
+  if(!r.type && !r.loc){ setParsed('Не понял: нужен тип (дрон, пожар, взрыв…) или место (квадрат 1–16, Кок-Тобе…)', true); say('Не понял. Повторите.'); return; }
+  var type = r.type || OTHER, loc = r.loc, approx = false;
+  if(!loc){ loc = {name:'Место не указано', c:jitter(CENTER,0.004,0.003)}; approx = true; }
+  var i = spawn({typeId:type.id, c:loc.c, name:loc.name, square:approx ? null : (loc.square || squareOf(loc.c)), heading:r.heading, dirLabel:r.dirLabel,
+    target:r.target, count:r.count, alt:r.alt, raw:raw, source:source});
+  renderFeed(); focusInc(i);
+  var parts = [type.l+(i.count ? ' ×'+i.count : ''), loc.name];
+  if(i.dirLabel) parts.push('курс '+i.dirLabel);
+  if(i.alt) parts.push('высота '+i.alt+' м');
+  setParsed(parts.join(' · '));
+  toast('⚠ #'+i.id+' '+parts.slice(0,2).join(' · '));
+  sAlarm(); say('Принято. '+parts.join(', ')+'.');
+}
+function closeFor(r){
+  var act = incidents.filter(function(i){ return i.active; });
+  if(!act.length){ setParsed('Активных инцидентов нет', true); say('Активных инцидентов нет.'); return; }
+  var pick = null;
+  if(r.loc){
+    if(r.loc.square) pick = act.slice().reverse().filter(function(i){ return i.square === r.loc.square; })[0] || null;
+    if(!pick) pick = act.reduce(function(b,i){ return distM(i.pos, r.loc.c) < distM(b.pos, r.loc.c) ? i : b; });
+  }
+  if(!pick && r.type) pick = act.slice().reverse().filter(function(i){ return i.type.id === r.type.id; })[0] || null;
+  if(!pick) pick = act[act.length-1];
+  doClose(pick);
+}
+function doClose(i){
+  i.active = false; i.moving = false;
+  if(i.el){ i.el.className = 'inc closed'; i.tagEl.textContent = tagText(i); }
+  renderFeed(); dirty = true;
+  setParsed('Инцидент #'+i.id+' ('+i.type.l+') закрыт');
+  toast('✓ #'+i.id+' '+i.type.l+' — закрыт', true);
+  sOk(); say('Принято. Инцидент '+i.id+', '+i.type.l+', закрыт.');
+}
+
+// микрофон
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, listening = false;
+function updateMic(text){ $('micBtn').className = 'mic'+(listening ? ' on' : ''); $('micState').textContent = text || (listening ? 'Слушаю…' : 'M — микрофон'); }
+function startRec(){
+  if(!SR){ updateMic('Голос — только в Google Chrome'); return; }
+  try{
+    rec = new SR(); rec.lang = $('lang').value; rec.continuous = true; rec.interimResults = true;
+    rec.onresult = function(e){
+      if(Date.now() < suppressUntil) return;
+      var interim = '';
+      for(var k=e.resultIndex;k<e.results.length;k++){ var res = e.results[k]; if(res.isFinal) handleCommand(res[0].transcript, 'голос'); else interim += res[0].transcript; }
+      if(interim) $('heard').textContent = interim+'…';
+    };
+    rec.onerror = function(e){
+      if(e.error === 'no-speech' || e.error === 'aborted') return;
+      var msg = 'Ошибка микрофона: '+e.error;
+      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){ msg = 'Нет доступа к микрофону — разрешите в Chrome'; listening = false; }
+      updateMic(msg);
+    };
+    rec.onend = function(){ if(listening){ try{ rec.start(); }catch(err){} } else updateMic(); };
+    rec.start(); listening = true; updateMic();
+  }catch(err){ listening = false; updateMic('Микрофон: '+err.message); }
+}
+function stopRec(){ listening = false; if(rec){ try{ rec.stop(); }catch(e){} } updateMic(); }
+function toggleMic(){ if(listening) stopRec(); else startRec(); }
+
+var DEMO = ['Квадрат 7, замечен дрон, идёт на север, высота 150','Два дрона над Кок-Тобе, курс на площадь Республики','Возгорание у ТЭЦ',
+  'Подозрительная группа людей у аэропорта, движутся в сторону вокзала Алматы-1','Цель в квадрате 7 уничтожена'];
+var demoRunning = false;
+function runDemo(){
+  if(demoRunning) return; demoRunning = true; $('demoBtn').disabled = true;
+  DEMO.forEach(function(cmd,k){ later(function(){ if(SL[cur].id !== 'demo') return; handleCommand(cmd, 'авто-демо'); if(k === DEMO.length-1){ demoRunning = false; $('demoBtn').disabled = false; } }, 400+k*6500); });
+}
+
+// ================== СЦЕНЫ ==================
+var swTimer = null;
+function startSW(){ var t0 = performance.now(); stopSW(); swTimer = setInterval(function(){ var s = (performance.now()-t0)/1000; var m = Math.floor(s/60); $('sw').textContent = (m<10?'0':'')+m+':'+((s%60)<10?'0':'')+(s%60).toFixed(1); }, 50); }
+function stopSW(){ if(swTimer){ clearInterval(swTimer); swTimer = null; } }
+function countUp(id, target, ms){ var e = $(id); tween(ms, function(k){ e.textContent = Math.round(target*k).toLocaleString('ru-RU').replace(/\u00a0/g,' ')+(k>=1 ? '+' : ''); }); }
+function typeText(id, text, cps, done){ var e = $(id), i = 0; e.textContent = ''; (function step(){ if(SL[cur].id !== 'here') return; i++; e.textContent = text.slice(0,i); if(i<text.length) later(step, 1000/cps); else if(done) done(); })(); }
+
+function cityCam(dur){ return {center:[76.935,43.245], zoom:11.5, pitch:60, bearing:-22, duration:dur||6500, curve:1.3}; }
+function bldCam(z, dur){ return {center:BLD_C, zoom:z||17.1, pitch:64, bearing:35, duration:dur||5500, curve:1.7}; }
+
+// ================== СЦЕНАРИИ: ЗДАНИЕ и ВОЙНА ==================
+var sceneTick = null, b3dDirty = false, floors = [], actors = [], routes = [], recon = null, extrOrig = null;
+var FLOORS = 5, FGAP = 14, SLAB = 1.2, ASZ = 2.4;
+var BP = [[76.95698,43.25818],[76.95732,43.25870],[76.95723,43.25950],[76.95713,43.26012]];
+var EXIT = [76.95690,43.25808];
+var ASSEMBLY = dest(EXIT, 210, 140);
+var COL = {hostile:'#ff3b30', hostage:'#ffb020', civ:'#fde68a', safe:'#22c55e', team:'#38bdf8', neutral:'#52525b', amb:'#f8fafc', drone:'#e2e8f0'};
+var SEVL = {3:'КРИТ', 2:'ВЫС', 1:'СРЕД'};
+
+function along(t, off){
+  var segs = BP.length-1, x = Math.max(0, Math.min(0.9999, t))*segs, k = Math.floor(x), f = x-k, a = BP[k], b = BP[k+1];
+  return [a[0]+(b[0]-a[0])*f+(off||0)*0.00003, a[1]+(b[1]-a[1])*f];
+}
+function fBase(f){ return (f-1)*FGAP+3; }
+function addActor(kind, p, z, o){ var a = {kind:kind, p:p, z:z, color:COL[kind]}; if(o){ a.size = o.size; a.h = o.h; } actors.push(a); b3dDirty = true; return a; }
+function setKind(a, k){ a.kind = k; a.color = COL[k]; b3dDirty = true; }
+function moveActor(a, toP, toZ, ms, cb){ var p0 = a.p.slice(), z0 = a.z; tween(ms, function(k){ a.p = [p0[0]+(toP[0]-p0[0])*k, p0[1]+(toP[1]-p0[1])*k]; a.z = z0+(toZ-z0)*k; b3dDirty = true; }, cb); }
+function updateB3D(){
+  if(!mapReady) return;
+  var fs = [];
+  floors.forEach(function(fl){ fs.push({type:'Feature', properties:{base:fBase(fl.n), top:fBase(fl.n)+SLAB, color:fl.color}, geometry:{type:'Polygon', coordinates:[BLD]}}); });
+  actors.forEach(function(a){ var sz = a.size || ASZ; fs.push({type:'Feature', properties:{base:a.z, top:a.z+(a.h || 2.8), color:a.color}, geometry:{type:'Polygon', coordinates:sqPoly(a.p, sz/2)}}); });
+  map.getSource('b3d').setData({type:'FeatureCollection', features:fs});
+}
+function dimCity(on){
+  if(!mapReady) return;
+  var ls = map.getStyle().layers.filter(function(l){ return l.type === 'fill-extrusion' && ['b3d','bld-x','beacon','pillars'].indexOf(l.id) < 0; });
+  if(on){
+    if(!extrOrig){ extrOrig = {}; ls.forEach(function(l){ extrOrig[l.id] = map.getPaintProperty(l.id, 'fill-extrusion-opacity'); }); }
+    ls.forEach(function(l){ try{ map.setPaintProperty(l.id, 'fill-extrusion-opacity', 0.15); }catch(e){} });
+  } else if(extrOrig){
+    ls.forEach(function(l){ try{ map.setPaintProperty(l.id, 'fill-extrusion-opacity', extrOrig[l.id] === undefined ? 1 : extrOrig[l.id]); }catch(e){} });
+  }
+}
+function setZone(c, r){ if(!mapReady) return; var pts = []; for(var i=0;i<=64;i++) pts.push(dest(c, i*360/64, r)); map.getSource('zone').setData({type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:[pts]}}); }
+function addRoute(c, color){ routes.push({c:c, color:color}); if(mapReady) map.getSource('routes').setData({type:'FeatureCollection', features:routes.map(function(r){ return {type:'Feature', properties:{color:r.color}, geometry:{type:'LineString', coordinates:r.c}}; })}); }
+function clearGeo2(){ if(!mapReady) return; ['b3d','zone','routes','front'].forEach(function(s){ map.getSource(s).setData(EMPTY); }); }
+function setRing(c){ if(mapReady) map.getSource('ring').setData({type:'Feature', properties:{}, geometry:{type:'Point', coordinates:c}}); ringOn = true; }
+
+// ---- панель действий ----
+function opsOpen(title, sub, kpis, btns){
+  $('opsTitle').textContent = title; $('opsSub').textContent = sub;
+  var kp = $('opsKpi'); kp.innerHTML = '';
+  kpis.forEach(function(k){ var d = el('div'); d.appendChild(el('small', null, k[0])); var b = el('b', k[2] ? 'r' : null, k[1]); b.id = 'kpi_'+k[3]; d.appendChild(b); kp.appendChild(d); });
+  var bt = $('opsBtns'); bt.innerHTML = '';
+  btns.forEach(function(b, idx){
+    var x = el('button'); x.appendChild(el('i', null, b[0])); x.appendChild(el('span', null, b[1])); x.appendChild(el('kbd', null, String(idx+1)));
+    x.addEventListener('click', function(ev){ ev.stopPropagation(); ac(); if(x.classList.contains('done') && !b[3]) return; x.classList.add('done'); b[2](); });
+    bt.appendChild(x);
+  });
+  $('opsList').innerHTML = ''; $('opsLog').innerHTML = '';
+  $('ops').classList.add('on');
+}
+function opsClose(){ $('ops').classList.remove('on'); }
+function kpi(id, v){ var e = $('kpi_'+id); if(e) e.textContent = v; }
+function opsLog(text){ var d = el('div'); d.appendChild(el('b', null, fmtTime(new Date()))); d.appendChild(document.createTextNode(text)); var L = $('opsLog'); L.insertBefore(d, L.firstChild); }
+function renderOps(items){
+  var L = $('opsList'); L.innerHTML = '';
+  items.forEach(function(it){
+    var d = el('div', 'oi'+(it.closed ? ' closed' : '')+(it.fresh ? ' fresh' : '')); it.fresh = false;
+    d.appendChild(el('span', 'sv '+(it.closed ? 'ok' : 's'+it.sev), it.closed ? 'OK' : SEVL[it.sev]));
+    d.appendChild(el('span', null, it.text)); d.appendChild(el('span', 'st', it.st)); L.appendChild(d);
+  });
+}
+
+// ---- сценарий: угроза в здании ----
+var bItems = [];
+function bAlive(){ return SL[cur] && SL[cur].id === 'building'; }
+function updCounts(){
+  kpi('in', actors.filter(function(a){ return a.kind === 'civ' || a.kind === 'hostage'; }).length);
+  var h = actors.filter(function(a){ return a.kind === 'hostile'; }).length; kpi('thr', h || '—');
+  kpi('ev', actors.filter(function(a){ return a.kind === 'safe'; }).length);
+}
+function bReport(sev, text, kind, count, t, floor){
+  if(!bAlive()) return;
+  floor = floor || 3;
+  if(kind){
+    floors[floor-1].color = kind === 'hostile' ? '#991b1b' : '#92400e';
+    for(var j=0;j<count;j++) addActor(kind, along(t+(Math.random()-0.5)*0.08, (Math.random()-0.5)*1.4), fBase(floor)+SLAB);
+  }
+  bItems.unshift({sev:sev, text:text, st:'новый', closed:false, fresh:true, kind:kind});
+  renderOps(bItems); updCounts();
+  toast('⚠ '+text); sAlarm(); say(text.replace(/·/g, ','));
+}
+function bEnter(){
+  clearIncidents(); actors = []; routes = []; floors = []; recon = null; bItems = []; clearGeo2(); PILLAR_M = 6;
+  setBuilding(0); dimCity(true);
+  for(var f=1; f<=FLOORS; f++) floors.push({n:f, color:'#334155'});
+  [[1,4],[2,5],[3,2],[4,3],[5,4]].forEach(function(x){ for(var j=0;j<x[1];j++) addActor('civ', along(Math.random()*0.9+0.05, (Math.random()-0.5)*1.6), fBase(x[0])+SLAB); });
+  sceneTick = function(now, dt){
+    if(recon){ recon.ang = (recon.ang+dt*35)%360; recon.p = dest(BLD_C, recon.ang, 90); b3dDirty = true; }
+    if(b3dDirty && mapReady){ updateB3D(); b3dDirty = false; }
+  };
+  fly({center:along(0.5), zoom:17.6, pitch:62, bearing:-70, duration:4500, curve:1.5}, 3);
+  opsOpen('ИНЦИДЕНТ', 'Зенкова, 24 · 5 этажей (схема)', [['В здании','—',false,'in'],['Угроза','—',true,'thr'],['Эвакуировано','0',false,'ev']], [
+    ['🚧','Оцепить периметр', bPerimeter],
+    ['🚪','Эвакуация людей', bEvac],
+    ['🛡','Группа реагирования', bTeam],
+    ['🚑','Скорая к точке сбора', bAmb],
+    ['🚁','Дрон-разведка', bRecon],
+    ['📢','Оповестить район', bAlert, true]
+  ]);
+  updCounts();
+  later(function(){ bReport(3, 'Вооружённые люди · 3 этаж · ~3 чел.', 'hostile', 3, 0.55, 3); }, 2800);
+  later(function(){ bReport(3, 'Заложники · 4 этаж · ~6 чел.', 'hostage', 6, 0.6, 4); }, 6200);
+  later(function(){ bReport(2, 'Слышны выстрелы · южное крыло', null); }, 9000);
+}
+function bLeave(){ sceneTick = null; actors = []; floors = []; routes = []; recon = null; clearGeo2(); dimCity(false); opsClose(); ringOn = false; }
+function bPerimeter(){ setZone(BLD_C, 200); toast('🚧 Периметр 200 м оцеплен', true); sOk(); opsLog('Периметр 200 м · подъезды перекрыты'); }
+function bEvac(){
+  var list = actors.filter(function(a){ return a.kind === 'civ'; });
+  addRoute([along(0.02), EXIT, ASSEMBLY], '#22c55e');
+  list.forEach(function(a, j){ setKind(a, 'safe'); later(function(){ moveActor(a, EXIT, 0, 1800, function(){ moveActor(a, jitter(ASSEMBLY, 0.00025, 0.0002), 0, 2200, updCounts); }); }, j*120); });
+  updCounts(); sOk(); toast('🚪 Эвакуация · '+list.length+' чел. через южный выход', true);
+  opsLog('Эвакуация: '+list.length+' чел. → точка сбора');
+}
+function bTeam(){
+  var start = dest(EXIT, 200, 70), team = [];
+  addRoute([start, EXIT], '#38bdf8');
+  for(var j=0;j<4;j++) team.push(addActor('team', jitter(start, 0.00008, 0.00006), 0));
+  opsLog('Группа реагирования выдвинулась · 4 ед.'); toast('🛡 Группа реагирования выдвинулась', true); sOk();
+  team.forEach(function(a, j){ moveActor(a, jitter(EXIT, 0.00003, 0.00002), 0, 2200, function(){ moveActor(a, along(0.5+j*0.02, (j%2 ? 1 : -1)*0.8), fBase(3)+SLAB, 2600, j === 0 ? bTeamArrive : null); }); });
+}
+function bTeamArrive(){
+  if(!bAlive()) return;
+  actors.filter(function(a){ return a.kind === 'hostile'; }).forEach(function(a){ setKind(a, 'neutral'); });
+  if(floors[2]) floors[2].color = '#334155';
+  bItems.forEach(function(x){ if(x.kind === 'hostile'){ x.closed = true; x.st = 'локализовано'; } else if(!x.kind){ x.closed = true; x.st = 'проверено'; } });
+  renderOps(bItems); updCounts(); b3dDirty = true;
+  toast('✓ Угроза на 3 этаже локализована', true); sOk(); opsLog('3 этаж: угроза локализована'); say('Угроза на третьем этаже локализована.');
+  later(function(){
+    var hs = actors.filter(function(a){ return a.kind === 'hostage'; });
+    hs.forEach(function(a, j){ setKind(a, 'safe'); later(function(){ moveActor(a, EXIT, 0, 2600, function(){ moveActor(a, jitter(ASSEMBLY, 0.00025, 0.0002), 0, 2000, updCounts); }); }, j*150); });
+    if(floors[3]) floors[3].color = '#334155';
+    bItems.forEach(function(x){ if(x.kind === 'hostage'){ x.closed = true; x.st = 'выведены'; } });
+    renderOps(bItems); updCounts(); if(hs.length) opsLog('Заложники выведены: '+hs.length+' чел.');
+  }, 1800);
+}
+function bAmb(){
+  var st = dest(ASSEMBLY, 250, 420); addRoute([st, ASSEMBLY], '#f8fafc');
+  var a = addActor('amb', st, 0, {size:6, h:3});
+  moveActor(a, dest(ASSEMBLY, 250, 18), 0, 5000, function(){ if(bAlive()) opsLog('Скорая на точке сбора'); });
+  toast('🚑 Скорая направлена · ≈ 4 мин', true); sOk(); opsLog('Скорая направлена к точке сбора');
+}
+function bRecon(){ recon = addActor('drone', dest(BLD_C, 0, 90), 55, {size:4, h:1.2}); recon.ang = 0; toast('🚁 Дрон-разведчик над зданием · видео в штаб', true); sOk(); opsLog('Дрон-разведка: облёт здания, видео в штаб'); }
+function bAlert(){ setRing(BLD_C); toast('📢 Оповещение: жители в радиусе 500 м', true); sOk(); opsLog('Оповещение района: SMS + Telegram'); }
+
+// ---- сценарий: боевые действия (учебный, условный район) ----
+var W_C = [75.90, 44.15], MED = [75.885, 44.10], wItems = [], lastAlarm = 0;
+function fl(x){ var i = (x-(W_C[0]-0.16))/0.008; return W_C[1]+0.012+Math.sin(i*0.55)*0.006+Math.sin(i*0.17)*0.008; }
+function frontLine(){ var p = []; for(var i=0;i<=40;i++){ var x = W_C[0]-0.16+i*0.008; p.push([x, fl(x)]); } return p; }
+function rnd(a, b){ return a+Math.floor(Math.random()*(b-a+1)); }
+var WK = {
+  uav:{t:'uav', sev:3, side:1, h:[165,200], sp:70, l:function(){ return 'БПЛА противника'+(Math.random()<0.4 ? ' ×'+rnd(2,4) : '')+' · курс юг'; }},
+  art:{t:'explosion', sev:3, side:-1, near:true, l:function(){ return 'Обстрел · ВОП-'+rnd(1,3); }},
+  wia:{t:'other', sev:3, side:-1, near:true, l:function(){ return 'Раненые ×'+rnd(1,4)+' · ждут эвакуации'; }},
+  col:{t:'vehicle', sev:2, side:1, h:[170,190], sp:22, l:function(){ return 'Колонна техники · '+rnd(3,8)+' ед.'; }},
+  ew:{t:'other', sev:2, side:-1, l:function(){ return 'РЭБ: подавление связи'; }},
+  comms:{t:'other', sev:2, side:-1, l:function(){ return 'Нет связи с группой '+rnd(1,5); }},
+  ied:{t:'other', sev:2, side:-1, deep:true, l:function(){ return 'Подозрение на мину · дорога снабжения'; }},
+  fire:{t:'fire', sev:1, side:-1, deep:true, l:function(){ return 'Пожар · склад ГСМ'; }},
+  shoot:{t:'shooting', sev:2, side:-1, near:true, l:function(){ return 'Стрелковый бой · ВОП-'+rnd(1,3); }}
+};
+var WSEQ = ['uav','art','wia','col','uav','comms','art','wia','ew','uav','shoot','wia','fire','col','uav','ied','art','wia','comms','uav','shoot','wia','art','uav','ew','wia','col','uav','wia','art'];
+function wAlive(){ return SL[cur] && SL[cur].id === 'war'; }
+function wPos(d){
+  var x = W_C[0]+(Math.random()-0.5)*0.17, f = fl(x);
+  var off = d.side > 0 ? 0.008+Math.random()*0.035 : -(d.near ? 0.003+Math.random()*0.01 : (d.deep ? 0.025+Math.random()*0.025 : 0.004+Math.random()*0.03));
+  return [x, f+off];
+}
+function wSpawn(k){
+  if(!wAlive()) return;
+  var d = WK[k], lab = d.l(), h = d.h ? d.h[0]+Math.random()*(d.h[1]-d.h[0]) : null;
+  var i = spawn({typeId:d.t, c:wPos(d), label:lab, heading:h, speed:d.sp, alt:d.t === 'uav' ? 200 : null});
+  wItems.push({inc:i, kind:k, sev:d.sev, text:lab, st:'новый', closed:false, fresh:true, t:Date.now()});
+  wRender();
+  var now = Date.now();
+  if(d.sev === 3 && now-lastAlarm > 1800){ sAlarm(); lastAlarm = now; toast('⚠ '+lab); } else sTick();
+}
+function wRender(){
+  var act = wItems.filter(function(x){ return !x.closed; }), cl = wItems.filter(function(x){ return x.closed; });
+  act.sort(function(a, b){ return (b.sev-a.sev) || (b.t-a.t); });
+  renderOps(act.concat(cl.slice().reverse()).slice(0, 40));
+  kpi('n', wItems.length); kpi('c', act.filter(function(x){ return x.sev === 3; }).length);
+}
+function wClose(it, st){ it.closed = true; it.st = st; var i = it.inc; i.active = false; i.moving = false; if(i.el){ i.el.className = 'inc closed'; i.tagEl.textContent = tagText(i); } dirty = true; }
+function wActive(ks){ return wItems.filter(function(x){ return !x.closed && (!ks || ks.indexOf(x.kind) >= 0); }); }
+function wEnter(){
+  clearIncidents(); routes = []; clearGeo2(); PILLAR_M = 160; wItems = []; lastAlarm = 0;
+  if(mapReady) map.getSource('front').setData({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates:frontLine()}});
+  fly({center:[W_C[0], W_C[1]-0.005], zoom:11.3, pitch:58, bearing:-8, duration:5200, curve:1.6}, 0.6);
+  [-0.09, 0, 0.09].forEach(function(dx, k){ var x = W_C[0]+dx; spawn({typeId:'other', c:[x, fl(x)-0.006], label:'ВОП-'+(k+1), own:true}); });
+  spawn({typeId:'other', c:MED, label:'Медпункт', own:true});
+  opsOpen('СИТУАЦИЯ', 'Учебный сценарий · условный район', [['Доклады','0',false,'n'],['Критичные','0',true,'c'],['Разбор','≈1 с',false,'t']], [
+    ['🧠','Сводка ИИ', wSummary, true],
+    ['🚑','Медэвакуация', wMedevac, true],
+    ['🛡','Цели → ПВО', wAD, true],
+    ['📡','Оповестить подразделения', wWarn, true],
+    ['🛰','Разведка', wRecon],
+    ['🔁','Восстановить связь', wRelay, true]
+  ]);
+  var t = 2600;
+  WSEQ.forEach(function(k, j){ later(function(){ wSpawn(k); }, t); t += Math.max(380, 1500-j*70); });
+}
+function wLeave(){ sceneTick = null; clearIncidents(); routes = []; clearGeo2(); opsClose(); ringOn = false; }
+function wSummary(){
+  var u = wActive(['uav']).length, w = wActive(['wia']).length, c = wActive(['comms','ew']).length, a = wActive(['art','shoot']).length, col = wActive(['col']).length, parts = [];
+  if(u) parts.push('БПЛА противника: '+u); if(w) parts.push('раненые ждут эвакуации: '+w+' точек'); if(a) parts.push('под огнём: '+a+' позиций');
+  if(col) parts.push('колонны техники: '+col); if(c) parts.push('проблемы со связью: '+c);
+  var msg = parts.length ? 'Главное — '+parts.join('; ') : 'Активных угроз нет';
+  opsLog('🧠 '+msg); toast('🧠 '+msg, true); say(msg+'.');
+}
+function wMedevac(){
+  var l = wActive(['wia']);
+  if(!l.length){ toast('Раненых в очереди нет', true); return; }
+  l.forEach(function(it, j){ addRoute([it.inc.pos, MED], '#22c55e'); it.st = 'эвакуация'; later(function(){ wClose(it, 'эвакуированы'); wRender(); }, 3500+j*400); });
+  wRender(); sOk(); toast('🚑 Медэвакуация: '+l.length+' точек, маршруты построены', true); opsLog('Медэвакуация: '+l.length+' точек → медпункт');
+}
+function wAD(){
+  var l = wActive(['uav']);
+  if(!l.length){ toast('Активных БПЛА нет', true); return; }
+  l.forEach(function(it, j){ it.st = 'передано ПВО'; later(function(){ wClose(it, 'отработано'); wRender(); }, 2500+j*350); });
+  wRender(); sOk(); toast('🛡 Целей передано ПВО: '+l.length, true); opsLog('ПВО: передано целей — '+l.length); say('Целей передано ПВО: '+l.length+'.');
+}
+function wWarn(){ setRing([W_C[0], fl(W_C[0])-0.006]); sOk(); toast('📡 Оповещение: ВОП-1…3, медпункт, штаб', true); opsLog('Оповещение ушло во все подразделения'); }
+function wRecon(){ spawn({typeId:'uav', c:MED.slice(), label:'Свой БПЛА · разведка', heading:5, speed:90, own:true}); sOk(); toast('🛰 Свой БПЛА вылетел на разведку', true); opsLog('Разведка: БПЛА вылетел, видео в штаб'); }
+function wRelay(){
+  var l = wActive(['comms','ew']);
+  l.forEach(function(it){ wClose(it, 'связь есть'); });
+  wRender(); sOk(); toast('🔁 Связь восстановлена через ретранслятор · '+l.length, true); opsLog('Ретранслятор: связь восстановлена ('+l.length+')');
+}
+
+var SL = [
+  {id:'cover', enter:function(){ clearIncidents(); PILLAR_M = 60; fly({center:[76.94,43.25], zoom:9.6, pitch:20, bearing:0, duration:1500}, 1.5); }},
+  {id:'city', enter:function(){
+    clearIncidents(); PILLAR_M = 70;
+    fly(cityCam(6500), 1.4);
+    countUp('popN', 2000000, 2400);
+    THREATS.forEach(function(t,k){ later(function(){ spawn({typeId:t.t, c:t.c, label:t.l, heading:t.h, speed:t.sp, alt:t.t==='uav'?300:null}); sTick(); $('thrN').textContent = k+1; }, 2700+k*480); });
+  }},
+  {id:'here', frags:2, enter:function(){
+    clearIncidents(); PILLAR_M = 6;
+    fly(bldCam(17.1, 6000), 5);
+    later(raiseBuilding, 5200);
+  }, frag:[null, function(){
+    if(!bldUp) raiseBuilding();
+    typeText('typeTx', '«Дрон над Зенкова, 24. Высота сто двадцать. Идёт на здание»', 32, function(){
+      var start = dest(BLD_C, 20, 420);
+      spawn({typeId:'uav', c:start, name:'Зенкова, 24', target:{name:'Зенкова, 24', c:BLD_C}, heading:bearing(start, BLD_C), speed:24, alt:120, label:'БПЛА · 120 м · курс на Зенкова, 24'});
+      toast('⚠ БПЛА · 120 м · курс на Зенкова, 24'); sAlarm();
+      fly({center:dest(BLD_C, 20, 180), zoom:16.4, pitch:62, bearing:200, duration:1800}, 4);
+    });
+  }, function(){ sTick(); }]},
+  {id:'problem', frags:1, enter:function(){ startSW(); }, leave:stopSW, frag:[null, function(){ stopSW(); sBoom(); }]},
+  {id:'solution', frags:1, enter:function(){ sOk(); }, frag:[null, function(){ sTick(); }]},
+  {id:'demo', enter:function(){
+    clearIncidents(); PILLAR_M = 40; setParsed('—'); $('heard').textContent = '—';
+    fly({center:[76.945,43.262], zoom:11.9, pitch:52, bearing:-15, duration:2600}, 0);
+    later(function(){ showGrid(true); }, 900);
+    $('demo').classList.add('on');
+  }, leave:function(){ showGrid(false); $('demo').classList.remove('on'); stopRec(); demoRunning = false; $('demoBtn').disabled = false; }},
+  {id:'building', enter:bEnter, leave:bLeave},
+  {id:'war', enter:wEnter, leave:wLeave},
+  {id:'how', enter:function(){ fly(cityCam(3500), 1.2); }},
+  {id:'who', frags:1, enter:function(){ fly({center:[76.93,43.27], zoom:11.2, pitch:55, bearing:20, duration:3500}, 1.4); }},
+  {id:'compare', enter:function(){}},
+  {id:'model', enter:function(){}},
+  {id:'team', enter:function(){ clearIncidents(); PILLAR_M = 6; fly(bldCam(16.2, 4500), 4); later(raiseBuilding, 3000); }},
+  {id:'final', enter:function(){ clearIncidents(); PILLAR_M = 6; fly({center:BLD_C, zoom:16.9, pitch:68, bearing:120, duration:3500, curve:1.4}, 6); later(raiseBuilding, 1500); }}
+];
+
+// ================== НАВИГАЦИЯ ==================
+var slideEls = [].slice.call(document.querySelectorAll('.slide'));
+var cur = -1, frag = 0;
+var SHADES = {L:'shL', F:'shF', D:'shD', C:'shC'};
+function setShade(k){ for(var s in SHADES) $(SHADES[s]).classList.toggle('on', s === k); }
+function buildProg(){ var p = $('prog'); p.innerHTML = ''; SL.forEach(function(){ var s = el('span'); s.appendChild(el('i')); p.appendChild(s); }); }
+function updateProg(){
+  var spans = $('prog').children;
+  for(var i=0;i<spans.length;i++){ spans[i].className = i<cur ? 'done' : (i===cur ? 'cur' : ''); spans[i].firstChild.style.width = i<cur ? '100%' : (i===cur ? (((frag+1)/((SL[i].frags||0)+1))*100)+'%' : '0'); }
+  $('pageN').textContent = cur > 0 ? (cur+' / '+(SL.length-1)) : '';
+}
+function wipe(){ var w = $('wipe'); w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); }
+function go(n){
+  if(n<0 || n>=SL.length || n === cur) return;
+  var prevEl = cur>=0 ? slideEls[cur] : null;
+  if(cur>=0 && SL[cur].leave) SL[cur].leave();
+  clearTimers();
+  if(['here','team','final'].indexOf(SL[n].id) < 0){ ringOn = false; if(mapReady) map.setPaintProperty('ring','circle-stroke-opacity', 0); }
+  cur = n; frag = 0;
+  var e = slideEls[n];
+  e.querySelectorAll('.f').forEach(function(x){ x.classList.remove('show'); });
+  e.querySelectorAll('[data-fh]').forEach(function(x){ x.classList.remove('gone'); });
+  if(prevEl){ prevEl.classList.remove('on'); prevEl.classList.add('out'); setTimeout(function(){ prevEl.classList.remove('out'); }, 460); wipe(); sWhoosh(); }
+  setTimeout(function(){ if(cur === n) e.classList.add('on'); }, prevEl ? 260 : 0);
+  setShade(e.getAttribute('data-shade'));
+  $('notes').textContent = '🗒 '+(e.getAttribute('data-notes') || '');
+  updateProg();
+  if(SL[n].enter) SL[n].enter();
+}
+function next(){ var s = SL[cur]; if(frag < (s.frags||0)){ frag++; showFrag(frag); } else go(cur+1); }
+function prev(){ go(cur-1); }
+function showFrag(k){
+  var e = slideEls[cur];
+  e.querySelectorAll('.f[data-f="'+k+'"]').forEach(function(x){ x.classList.add('show'); });
+  e.querySelectorAll('[data-fh="'+k+'"]').forEach(function(x){ x.classList.add('gone'); });
+  var fn = SL[cur].frag && SL[cur].frag[k]; if(fn) fn();
+  updateProg();
+}
+
+// ================== АНИМАЦИЯ ==================
+var lastT = performance.now(), lastGeo = 0;
+function tick(now){
+  var dt = Math.min(0.1, (now-lastT)/1000); lastT = now;
+  if(orbit && mapReady && !map.isMoving()) map.setBearing((map.getBearing()+orbit.speed*dt)%360);
+  var moved = false;
+  incidents.forEach(function(i){
+    if(!i.active || !i.moving) return;
+    if((now-i.born)/1000 > 240){ i.moving = false; return; }
+    var hd = i.heading;
+    if(i.target){ if(distM(i.pos, i.target.c) < 60){ i.moving = false; return; } hd = bearing(i.pos, i.target.c); }
+    i.pos = dest(i.pos, hd, i.speed*dt);
+    if(i.marker) i.marker.setLngLat(i.pos);
+    if(now-i.lastTrack > 700){ i.track.push(i.pos.slice()); i.lastTrack = now; }
+    moved = true;
+  });
+  if(sceneTick) sceneTick(now, dt);
+  if(ringOn && mapReady){ var k = (now%1800)/1800; map.setPaintProperty('ring','circle-radius', 12+k*120); map.setPaintProperty('ring','circle-stroke-opacity', 0.9*(1-k)); }
+  if(mapReady && (moved || dirty) && now-lastGeo > 120){ updateGeo(); lastGeo = now; dirty = false; }
+  requestAnimationFrame(tick);
+}
+
+// ================== ЗАПУСК ==================
+function boot(){
+  var team = $('team');
+  CONFIG.team.forEach(function(m){
+    var c = el('div','mem'+(m.ph ? ' ph' : ''));
+    var ini = m.name.replace(/[\[\]]/g,'').split(' ').map(function(w){ return w.charAt(0); }).join('').slice(0,2).toUpperCase();
+    c.appendChild(el('div','av', ini)); c.appendChild(el('span', null, m.name)); c.appendChild(el('em', null, m.role)); c.appendChild(el('small', null, m.info));
+    team.appendChild(c);
+  });
+  $('contact').textContent = CONFIG.contact;
+  ['Квадрат 7, дрон, идёт на север','Два дрона над Кок-Тобе, курс на площадь Республики','Возгорание у ТЭЦ','Взрыв в квадрате 10','Цель в квадрате 7 уничтожена'].forEach(function(c){
+    var ch = el('span', null, c); ch.addEventListener('click', function(){ handleCommand(c, 'текст'); }); $('chips').appendChild(ch);
+  });
+  var input = $('cmd');
+  input.addEventListener('keydown', function(e){ e.stopPropagation(); if(e.key === 'Enter'){ e.preventDefault(); handleCommand(input.value, 'текст'); input.value = ''; } if(e.key === 'Escape') input.blur(); });
+  $('micBtn').addEventListener('click', toggleMic);
+  $('lang').addEventListener('change', function(){ if(listening){ stopRec(); startRec(); } });
+  $('demoBtn').addEventListener('click', runDemo);
+  $('resetBtn').addEventListener('click', function(){ clearIncidents(); setParsed('—'); });
+  $('demo').addEventListener('click', function(e){ e.stopPropagation(); });
+  $('ops').addEventListener('click', function(e){ e.stopPropagation(); });
+  $('help').addEventListener('click', function(e){ e.stopPropagation(); $('help').classList.remove('on'); });
+  $('stage').addEventListener('click', function(e){ if(e.target.closest && e.target.closest('.maplibregl-ctrl')) return; ac(); next(); });
+  document.addEventListener('keydown', function(e){
+    var tag = (document.activeElement && document.activeElement.tagName) || '';
+    if(tag === 'INPUT' || tag === 'SELECT') return;
+    var k = e.key; ac();
+    if(k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter'){ e.preventDefault(); next(); }
+    else if(k === 'ArrowLeft' || k === 'PageUp'){ e.preventDefault(); prev(); }
+    else if(k === 'Home'){ go(0); }
+    else if(k === 'f' || k === 'F' || k === 'а' || k === 'А'){ if(!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+    else if(k === 'n' || k === 'N' || k === 'т' || k === 'Т'){ $('notes').classList.toggle('on'); }
+    else if(k === 'h' || k === 'H' || k === '?' || k === 'р' || k === 'Р'){ $('help').classList.toggle('on'); }
+    else if(k === 's' || k === 'S' || k === 'ы' || k === 'Ы'){ SOUND = !SOUND; toast(SOUND ? '🔊 Звук включён' : '🔇 Звук выключен', true); }
+    else if(k === 'm' || k === 'M' || k === 'ь' || k === 'Ь'){ if(SL[cur].id === 'demo') toggleMic(); }
+    else if(k === 'd' || k === 'D' || k === 'в' || k === 'В'){ if(SL[cur].id === 'demo') runDemo(); }
+    else if(/^[1-6]$/.test(k) && $('ops').classList.contains('on')){ var bb = $('opsBtns').children[parseInt(k,10)-1]; if(bb) bb.click(); }
+    else if(k === 'r' || k === 'R' || k === 'к' || k === 'К'){ clearIncidents(); setParsed('—'); }
+  });
+  buildProg(); renderFeed();
+  if(!SR) updateMic('Голос — откройте в Chrome');
+  window.__qyran = {go:go, next:next, state:function(){ return {cur:cur, frag:frag, mapReady:mapReady, incidents:incidents.length}; }, cmd:handleCommand, btn:function(k){ var b = $('opsBtns').children[k]; if(b) b.click(); }};
+  initMap();
+  go(0);
+  requestAnimationFrame(tick);
+}
+boot();
+})();
+</script>
+</body>
+</html>
