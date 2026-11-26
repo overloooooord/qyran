@@ -45,8 +45,9 @@
   .big-num{font:800 36px Unbounded,sans-serif;color:#fff;display:block;margin-bottom:4px}
   .pill-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
   .pill{border:1px solid var(--ln);background:rgba(15,23,42,.88);border-radius:999px;padding:7px 15px;font-size:13.5px;color:#fff;font-weight:600}
-  .team-card{display:flex;gap:18px;align-items:center}
-  .avatar{width:96px;height:96px;border-radius:16px;object-fit:cover;border:2px solid var(--red);flex-shrink:0;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .team-card{display:flex;flex-direction:column;gap:12px}
+  .team-head{display:flex;gap:14px;align-items:center}
+  .avatar{width:76px;height:76px;border-radius:14px;object-fit:cover;border:2px solid var(--red);flex-shrink:0;box-shadow:0 8px 24px rgba(0,0,0,.5)}
   table{width:100%;border-collapse:collapse;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--ln)}
   th,td{padding:12px 15px;border-bottom:1px solid var(--ln);text-align:left;font-size:14.5px}
   th{color:var(--mu);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
@@ -172,22 +173,36 @@
   <section class="slide" data-center="71.4180,51.0902" data-zoom="14.5">
     <div class="kicker">06 · КОМАНДА И ДЕМО (15 БАЛЛОВ)</div>
     <h1>Собрали своими руками.<br><em>MVP работает вживую.</em></h1>
-    <div class="grid2" style="margin-bottom:18px">
+    <div class="grid3" style="margin-bottom:18px">
       <div class="box blue team-card">
-        <img class="avatar" src="../assets/team_yeraly.jpg" alt="Ералы Абуталифулы">
-        <div>
-          <h3>Ералы Абуталифулы</h3>
-          <p style="color:var(--blue);font-weight:600;margin-bottom:5px;font-size:13px">ML Engineer · Backend · Project Lead</p>
-          <p style="font-size:13.5px">Опыт в автоматизации, ASR/NLP, FastAPI/Django и визуализации данных (призер OneIdea Championship 2026, Efes Kazakhstan).</p>
+        <div class="team-head">
+          <img class="avatar" src="../assets/team_yeraly.jpg" alt="Ералы Абуталифулы">
+          <div>
+            <h3 style="margin-bottom:3px;font-size:15px">Ералы Абуталифулы</h3>
+            <p style="color:var(--blue);font-weight:600;font-size:12.5px">ML Engineer · Backend · Lead</p>
+          </div>
         </div>
+        <p style="font-size:13.5px">Архитектура ASR/NLP, локальный Whisper + mDeBERTa, FastAPI и автоматизация (призер OneIdea Championship 2026, Efes Kazakhstan).</p>
       </div>
       <div class="box team-card">
-        <img class="avatar" src="../assets/team_adelia.jpg" alt="Аделия">
-        <div>
-          <h3>Аделия</h3>
-          <p style="color:var(--blue);font-weight:600;margin-bottom:5px;font-size:13px">ML Engineer · Backend · Data Viz</p>
-          <p style="font-size:13.5px">Разработка ML-моделей, серверной архитектуры, пространственной аналитики и 3D-визуализации.</p>
+        <div class="team-head">
+          <img class="avatar" src="../assets/team_adelia.jpg" alt="Аделия Аджибаева">
+          <div>
+            <h3 style="margin-bottom:3px;font-size:15px">Аделия Аджибаева</h3>
+            <p style="color:var(--blue);font-weight:600;font-size:12.5px">ML Engineer · Backend · Data Viz</p>
+          </div>
         </div>
+        <p style="font-size:13.5px">Разработка ML-моделей, серверной логики, пространственной аналитики и 3D-визуализации оперативной обстановки.</p>
+      </div>
+      <div class="box team-card">
+        <div class="team-head">
+          <img class="avatar" src="../assets/team_nurzhan.jpg" alt="Нұржан Әбдік">
+          <div>
+            <h3 style="margin-bottom:3px;font-size:15px">Нұржан Әбдік</h3>
+            <p style="color:var(--blue);font-weight:600;font-size:12.5px">Software Engineer · Product & QA</p>
+          </div>
+        </div>
+        <p style="font-size:13.5px">Интеграция интерфейса оператора, тестирование сценариев ЧС, проработка пилотного внедрения и защита продукта.</p>
       </div>
     </div>
     <div class="box grn" style="display:flex;justify-content:space-between;align-items:center;gap:16px">

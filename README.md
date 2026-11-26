@@ -131,7 +131,8 @@ qyran/
 ## Команда
 
 - **Ералы Абуталифулы** (ML Engineer, Backend, Project Lead)
-- **Аделия** (ML Engineer, Backend, Data Visualization)
+- **Аделия Аджибаева** (ML Engineer, Backend, Data Visualization)
+- **Нұржан Әбдік** (Software Engineer, Product & QA)
 
 ## Лицензия
 
