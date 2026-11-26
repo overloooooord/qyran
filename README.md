@@ -16,7 +16,7 @@
 - **Full-Stack Local AI MVP (основной продукт — Whisper GPU + OSRM + Закон РК № 230-VIII):** запустите `./run.sh` → `http://localhost:8000` (питч: `http://localhost:8000/pitch`)
 - **Интерактивный 3D Питч-дек IT FEST 2026 (в браузере):** [overloooooord.github.io/qyran/demo/pitch-itfest2026.html](https://overloooooord.github.io/qyran/demo/pitch-itfest2026.html)
 - **Standalone Web-демо консоли (без бэкенда):** [overloooooord.github.io/qyran](https://overloooooord.github.io/qyran/) · [Живой микрофон](https://overloooooord.github.io/qyran/demo/live.html) · [Руководство RU/KZ](https://overloooooord.github.io/qyran/demo/manual.html)
-- **Документация:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/RESPONSIBLE_AI_KZ_230.md`](docs/RESPONSIBLE_AI_KZ_230.md) · [`docs/QYRAN_pitch.pdf`](docs/QYRAN_pitch.pdf)
+- **Документация и финал IT FEST 2026:** [`docs/QYRAN_ITFEST2026_Pitch.pdf`](docs/QYRAN_ITFEST2026_Pitch.pdf) · [`docs/FINALIST_PITCH_SCRIPT.md`](docs/FINALIST_PITCH_SCRIPT.md) · [`docs/RESPONSIBLE_AI_KZ_230.md`](docs/RESPONSIBLE_AI_KZ_230.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 

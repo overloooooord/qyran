@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QYRAN 2.0 · Питч-дек IT FEST 2026 (Astana EXPO)</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@600;700&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="/static/vendor/maplibre-gl.css" rel="stylesheet">
+<script src="/static/vendor/maplibre-gl.js"></script>
 <style>
-  :root{--bg:#06090f;--card:rgba(13,19,30,.86);--ln:rgba(148,163,184,.2);--tx:#eef3fa;--mu:#94a3b8;--red:#ff3b30;--blue:#38bdf8;--grn:#22c55e;--amb:#f59e0b}
+  :root{--bg:#06090f;--card:rgba(13,19,30,.9);--ln:rgba(148,163,184,.22);--tx:#eef3fa;--mu:#94a3b8;--red:#ff3b30;--blue:#38bdf8;--grn:#22c55e;--amb:#f59e0b}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;background:var(--bg);color:var(--tx);font:16px/1.5 Inter,system-ui,sans-serif;overflow:hidden}
-  #bgmap{position:fixed;inset:0;z-index:0;opacity:.38;filter:saturate(.85)}
-  #vignette{position:fixed;inset:0;z-index:1;background:radial-gradient(circle at 65% 45%,rgba(6,9,15,.35) 0%,rgba(6,9,15,.92) 78%)}
-  #chrome{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:12px;padding:14px 28px}
+  #bgmap{position:fixed;inset:0;z-index:0;opacity:.4;filter:saturate(.85)}
+  #vignette{position:fixed;inset:0;z-index:1;background:radial-gradient(circle at 65% 45%,rgba(6,9,15,.35) 0%,rgba(6,9,15,.94) 78%)}
+  #chrome{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:10px;padding:14px 28px}
   .brand{font:800 16px Unbounded,sans-serif;letter-spacing:.08em;color:#fff;display:flex;align-items:center;gap:8px}
   .brand i{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red)}
-  .progress{flex:1;display:flex;gap:5px;margin:0 18px}
+  .progress{flex:1;display:flex;gap:5px;margin:0 16px}
   .progress span{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.16);cursor:pointer;transition:.25s}
   .progress span.dn{background:#fff}.progress span.on{background:var(--red)}
-  .nav-btn{font:600 13px Inter,sans-serif;background:rgba(20,28,42,.85);color:#fff;border:1px solid var(--ln);border-radius:9px;padding:7px 14px;cursor:pointer;text-decoration:none}
+  .nav-btn{font:600 13px Inter,sans-serif;background:rgba(20,28,42,.88);color:#fff;border:1px solid var(--ln);border-radius:9px;padding:7px 13px;cursor:pointer;text-decoration:none}
   .nav-btn.pri{background:var(--red);border-color:var(--red)}
   .nav-btn:hover{border-color:var(--blue)}
 
@@ -28,29 +28,46 @@
   .slide.on{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   .kicker{font:700 12px Unbounded,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:14px}
-  h1{font:800 clamp(38px,5.2vw,68px)/1.06 Unbounded,sans-serif;color:#fff;margin-bottom:18px}
+  h1{font:800 clamp(36px,4.9vw,64px)/1.07 Unbounded,sans-serif;color:#fff;margin-bottom:18px}
   h1 em{font-style:normal;color:var(--red)}
   h1 .bl{color:var(--blue)}
   h1 .gr{color:var(--grn)}
-  .lead{font-size:clamp(17px,1.8vw,22px);color:#cbd5e1;max-width:840px;margin-bottom:28px}
+  .lead{font-size:clamp(16px,1.75vw,21px);color:#cbd5e1;max-width:860px;margin-bottom:26px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
   .box{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)}
-  .box.red{border-color:rgba(255,59,48,.55);background:rgba(48,14,14,.55)}
-  .box.grn{border-color:rgba(34,197,94,.5);background:rgba(10,36,22,.55)}
-  .box.blue{border-color:rgba(56,189,248,.5)}
-  .box h3{font:700 16px Unbounded,sans-serif;color:#fff;margin-bottom:8px}
+  .box.red{border-color:rgba(255,59,48,.55);background:rgba(48,14,14,.6)}
+  .box.grn{border-color:rgba(34,197,94,.52);background:rgba(10,36,22,.6)}
+  .box.blue{border-color:rgba(56,189,248,.52)}
+  .box h3{font:700 15.5px Unbounded,sans-serif;color:#fff;margin-bottom:8px}
   .box p{font-size:14.5px;color:#cbd5e1}
-  .big-num{font:800 38px Unbounded,sans-serif;color:#fff;display:block;margin-bottom:4px}
+  .big-num{font:800 36px Unbounded,sans-serif;color:#fff;display:block;margin-bottom:4px}
   .pill-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
-  .pill{border:1px solid var(--ln);background:rgba(15,23,42,.85);border-radius:999px;padding:7px 15px;font-size:13.5px;color:#fff;font-weight:600}
+  .pill{border:1px solid var(--ln);background:rgba(15,23,42,.88);border-radius:999px;padding:7px 15px;font-size:13.5px;color:#fff;font-weight:600}
+  .team-card{display:flex;gap:18px;align-items:center}
+  .avatar{width:96px;height:96px;border-radius:16px;object-fit:cover;border:2px solid var(--red);flex-shrink:0;box-shadow:0 8px 24px rgba(0,0,0,.5)}
   table{width:100%;border-collapse:collapse;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--ln)}
   th,td{padding:12px 15px;border-bottom:1px solid var(--ln);text-align:left;font-size:14.5px}
   th{color:var(--mu);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-  td.q{color:#4ade80;font-weight:700;background:rgba(34,197,94,.1)}
+  td.q{color:#4ade80;font-weight:700;background:rgba(34,197,94,.12)}
   .foot-hint{position:fixed;bottom:14px;left:28px;right:28px;z-index:10;display:flex;justify-content:space-between;color:var(--mu);font-size:12px}
   .mono{font-family:'JetBrains Mono',monospace}
+  code{font-family:'JetBrains Mono',monospace;background:rgba(56,189,248,.12);color:#93c5fd;padding:1px 6px;border-radius:5px;font-size:13px}
+
+  @page { size: 13.333in 7.5in; margin: 0; }
+  @media print {
+    html,body{height:auto;overflow:visible;background:#06090f !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #chrome,.foot-hint,#bgmap,#vignette{display:none !important}
+    main{display:block;height:auto;padding:0}
+    .slide{
+      display:flex !important;flex-direction:column;justify-content:center;
+      width:13.333in;height:7.5in;padding:0.65in 0.8in;
+      background:radial-gradient(circle at 80% 20%,#111c30 0%,#06090f 70%) !important;
+      page-break-after:always;break-after:page;animation:none;
+    }
+    .slide:last-child{page-break-after:auto;break-after:auto}
+  }
 </style>
 </head>
 <body>
@@ -61,13 +78,14 @@
   <div class="brand"><i></i>QYRAN 2.0</div>
   <div class="progress" id="prog"></div>
   <span class="mono" id="cnt" style="font-size:13px;color:var(--mu)">1 / 8</span>
-  <a class="nav-btn pri" href="/">▶ Открыть живой пульт</a>
+  <button class="nav-btn" onclick="window.print()" title="Сохранить презентацию в PDF">🖨 PDF</button>
+  <a class="nav-btn pri" href="/">▶ Живой пульт</a>
 </header>
 
 <main>
   <!-- SLIDE 1: HERO -->
   <section class="slide on" data-center="71.4180,51.0902" data-zoom="14.2">
-    <div class="kicker">IT FEST 2026 · STARTUP BATTLE · ASTANA EXPO</div>
+    <div class="kicker">IT FEST 2026 · FINALS · STARTUP BATTLE · ASTANA EXPO</div>
     <h1>QYRAN <em>2.0</em><br>Ты говоришь — <span class="bl">3D-карта видит</span>.</h1>
     <p class="lead">Суверенная on-premise ИИ-платформа, которая за &lt; 1 секунду превращает живую радиоречь на <b>казахском и русском</b> в 3D-карту обстановки, маршруты реагирования OSRM и юридически значимый SHA-256 аудит.</p>
     <div class="pill-row">
@@ -84,9 +102,9 @@
     <h1>Между рацией и картой стоит <em>человек</em>.</h1>
     <p class="lead">При одновременном пожаре, дроне и аварии на подстанции диспетчер 112/МЧС вручную слушает рацию, записывает на бумагу, ищет квадрат на карте и диктует расчётам. На 1 доклад уходит <b>~2 минуты</b>.</p>
     <div class="grid3">
-      <div class="box red"><span class="big-num">×10</span><h3>Параллельных докладов</h3><p>Карта отстаёт от реальности в критические первые минуты ЧС.</p></div>
-      <div class="box"><span class="big-num" style="color:var(--blue)">17 + 3</span><h3>Регионов РК + мегаполисы</h3><p>ЦОУ-112, ДЧС/МЧС, акиматы, объекты ТЭЦ/нефтегаза/аэропорты и EXPO-кластеры.</p></div>
-      <div class="box"><span class="big-num" style="color:var(--amb)">0</span><h3>Зарубежных систем под KK-эфир</h3><p>Иностранные ГИС требуют облако, ручной ввод и не понимают казахский радиоэфир.</p></div>
+      <div class="box red"><span class="big-num">×10</span><h3>Параллельных докладов</h3><p>Карта отстаёт от реальности в критические первые минуты ЧС; часть деталей теряется.</p></div>
+      <div class="box"><span class="big-num" style="color:var(--blue)">17 + 3</span><h3>Регионов РК + мегаполисы</h3><p>ЦОУ-112, ДЧС/МЧС, акиматы, ТЭЦ/нефтегаз, аэропорты и крупные выставочные центры EXPO.</p></div>
+      <div class="box"><span class="big-num" style="color:var(--amb)">0</span><h3>Зарубежных систем под KK-эфир</h3><p>Иностранные ГИС требуют облако, ручной ввод мышью и не распознают казахский радиоэфир.</p></div>
     </div>
   </section>
 
@@ -94,12 +112,12 @@
   <section class="slide" data-center="71.4165,51.0875" data-zoom="15.0">
     <div class="kicker">02 · ПРОДУКТ И РАБОТАЮЩИЙ MVP (20 БАЛЛОВ)</div>
     <h1>Не макет. <em>Full-Stack</em> локальный ИИ.</h1>
-    <p class="lead">Подключается поверх существующих раций (RoIP-шлюз) и микрофонов без замены парка связи. Работает прямо сейчас на ноутбуке с локальным GPU.</p>
+    <p class="lead">Подключается поверх существующих раций (RoIP-шлюз) без замены парка связи. Полностью работает прямо сейчас на ноутбуке даже без доступа в интернет.</p>
     <div class="grid4">
-      <div class="box blue"><h3>🎙 Живой эфир + PTT</h3><p>Микрофон, загрузка WAV/MP3, реальный радиофильтр 300–3400 Гц, расчёт SNR и waveform.</p></div>
-      <div class="box"><h3>🗺 3D-карта + OSRM</h3><p>3D-здания Астаны и Алматы, динамический расчёт маршрутов ближайших расчётов и ETA.</p></div>
-      <div class="box"><h3>🧊 3D-объект + Камеры</h3><p>Поэтажный цифровой двойник (Павильон C2), тепловизоры и локальный Edge-Vision анализатор.</p></div>
-      <div class="box grn"><h3>📤 Стандарты</h3><p>Экспорт TAK/CoT 2.0 XML, GeoJSON, официальный PDF-отчёт и SHA-256 аудит.</p></div>
+      <div class="box blue"><h3>🎙 Живой эфир + PTT</h3><p>Микрофон, загрузка WAV/MP3, реальный радиофильтр 300–3400 Гц, SNR, стресс-тест «Шквал ×5».</p></div>
+      <div class="box"><h3>🗺 3D-карта + OSRM</h3><p>3D-здания Астаны и Алматы (32 ориентира), динамический расчёт маршрутов ближайших расчётов и ETA.</p></div>
+      <div class="box"><h3>🧊 3D-объект + CV</h3><p>Поэтажный цифровой двойник (Павильон C2), 4 камеры/тепловизора и локальный Edge-Vision анализатор.</p></div>
+      <div class="box grn"><h3>🤖 ИИ-Штаб + Экспорт</h3><p>Grounded Q&amp;A-ассистент с цитированием ID, экспорт TAK/CoT 2.0 XML, GeoJSON, PDF-отчёт и SHA-256.</p></div>
     </div>
   </section>
 
@@ -107,11 +125,11 @@
   <section class="slide" data-center="76.9572,43.2591" data-zoom="14.2">
     <div class="kicker">03 · РОЛЬ И КАЧЕСТВО ИИ (20 БАЛЛОВ)</div>
     <h1>Реальные замеры: WER <span class="gr">-89.0%</span> на GPU.</h1>
-    <p class="lead">ИИ — ядро продукта, а не обёртка. Наш пайплайн решает 2 реальные проблемы Whisper на узкополосной рации: <b>галлюцинации в шуме</b> и <b>искажения казахско-русских терминов</b>.</p>
+    <p class="lead">ИИ — ядро продукта. Наш пайплайн решает 2 реальные проблемы Whisper на узкополосной рации: <b>галлюцинации в шуме</b> и <b>искажения казахско-русских терминов</b>.</p>
     <div class="grid4" style="margin-bottom:18px">
       <div class="box grn"><span class="big-num" style="color:var(--grn)">-89%</span><h3>Снижение WER</h3><p>Астана EXPO: <b>28.2% → 3.1%</b><br>Алматы (10 клипов): <b>28.7% → 3.9%</b></p></div>
-      <div class="box blue"><span class="big-num" style="color:var(--blue)">11–18×</span><h3>Быстрее реального времени</h3><p>Локальный Whisper Large v3 Turbo на RTX 4050 (fp16) · загрузка 1.3 с.</p></div>
-      <div class="box"><span class="big-num">100%</span><h3>Авто-язык KK / RU</h3><p>Без переключения языка на 18 реальных радиозаписях.</p></div>
+      <div class="box blue"><span class="big-num" style="color:var(--blue)">11–18×</span><h3>Быстрее реального времени</h3><p>Локальный Whisper Large v3 Turbo на RTX 4050 (fp16) · прогрев 1.3 с.</p></div>
+      <div class="box"><span class="big-num">100%</span><h3>Авто-язык KK / RU</h3><p>Без ручного переключения на 18 реальных радиозаписях kk/ru.</p></div>
       <div class="box red"><span class="big-num" style="color:var(--amb)">2 / 2</span><h3>Галлюцинаций отбито</h3><p>Перехват «Продолжение следует…» и восстановление казахского доклада рескорингом.</p></div>
     </div>
     <div class="box" style="padding:13px 18px;font-size:14px">
@@ -127,8 +145,8 @@
     <div class="grid2">
       <div class="box blue"><h3>⚖️ Строгий Human-in-the-Loop (ст. 17–19)</h3><p>Автономное исполнение критических решений P1/P2 технически заблокировано. Оператор утверждает или отклоняет каждую рекомендацию ИИ.</p></div>
       <div class="box grn"><h3>🏷 Двойная маркировка (ст. 21)</h3><p>Визуальный бейдж <code>🤖 AI-ASSISTED</code> + машиночитаемый JSON-LD паспорт с SHA-256 во всех отчётах, GeoJSON и TAK/CoT XML.</p></div>
-      <div class="box"><h3>🔐 Криптографический журнал (SHA-256)</h3><p>Неизменяемая хеш-цепь в SQLite + живой тест атаки подмены, мгновенно выявляющий редактирование истории.</p></div>
-      <div class="box"><h3>🛡 Суверенитет и защита ПДн (Закон № 94-V)</h3><p>0 облачных AI-вызовов. Автоматическое маскирование ИИН, телефонов +7 7XX, госномеров и ФИО перед экспортом.</p></div>
+      <div class="box"><h3>🔐 Криптографический аудит (SHA-256)</h3><p>Неизменяемая хеш-цепь в SQLite + живой тест атаки подмены, мгновенно выявляющий редактирование истории.</p></div>
+      <div class="box"><h3>🛡 Суверенитет и ПДн (Закон № 94-V)</h3><p>0 облачных AI-вызовов. Автоматическое маскирование ИИН, телефонов +7 7XX, госномеров и ФИО перед экспортом.</p></div>
     </div>
   </section>
 
@@ -137,39 +155,45 @@
     <div class="kicker">05 · КОНКУРЕНТЫ И БИЗНЕС-МОДЕЛЬ (20 БАЛЛОВ)</div>
     <h1>Пилот → <em>Лицензия</em> → Масштаб.</h1>
     <table style="margin-bottom:18px">
-      <tr><th>Критерий</th><th>Бумажная карта / Диспетчер</th><th>Обычная ГИС / ATAK</th><th>QYRAN 2.0</th></tr>
+      <tr><th>Критерий</th><th>Диспетчер + бумага</th><th>Обычная ГИС / ATAK</th><th>QYRAN 2.0</th></tr>
       <tr><td>Ввод на карту</td><td>Вручную (~2 мин/доклад)</td><td>Мышью / со смартфона</td><td class="q">Голосом из рации (&lt; 1 с)</td></tr>
       <tr><td>Казахский радиоэфир</td><td>Слушает человек</td><td>Нет</td><td class="q">✔ KK + RU (WER -89%)</td></tr>
-      <tr><td>Соответствие Закону РК №230-VIII</td><td>—</td><td>Нет</td><td class="q">✔ HITL + ст.21 + SHA-256</td></tr>
-      <tr><td>Контур развёртывания</td><td>Офлайн</td><td>Облако / иностранный вендор</td><td class="q">✔ 100% On-Premise РК</td></tr>
+      <tr><td>Закон РК № 230-VIII</td><td>—</td><td>Нет</td><td class="q">✔ HITL + ст.21 + SHA-256</td></tr>
+      <tr><td>Развёртывание</td><td>Офлайн</td><td>Облако / чужой вендор</td><td class="q">✔ 100% On-Premise РК</td></tr>
     </table>
     <div class="grid3">
-      <div class="box"><h3>01 · Пилот (1–2 мес)</h3><p>1 объект (МЧС / ТЭЦ / EXPO). Замер скорости на реальном эфире и сбор RoIP-шлюза с Almaty FabLab.</p></div>
-      <div class="box grn"><h3>02 · B2G / B2B Подписка</h3><p><b>3.5–6 млн ₸ / объект в год</b> (ПО + обновления локальных KK/RU моделей + поддержка).</p></div>
-      <div class="box blue"><h3>03 · Внедрение</h3><p>Аппаратный RoIP-шлюз к существующим рациям (Motorola/Hytera) + интеграция с ЦОУ-112 и TAK/ГИС.</p></div>
+      <div class="box"><h3>01 · Пилот (1–2 мес)</h3><p>1 объект (МЧС / ТЭЦ / EXPO). Замер точности на реальном эфире + RoIP-шлюз с Almaty FabLab.</p></div>
+      <div class="box grn"><h3>02 · B2G / B2B Подписка</h3><p><b>4.5 млн ₸ / объект в год</b> (~$9K ARR). 10 объектов = <b>45 млн ₸ ARR</b>. Окупаемость &lt; 3 мес.</p></div>
+      <div class="box blue"><h3>03 · Интеграция</h3><p>RoIP-шлюз к существующим рациям (Motorola/Hytera) + коннекторы TAK/CoT, 112 и Telegram.</p></div>
     </div>
   </section>
 
   <!-- SLIDE 7: TEAM (15 pts) -->
   <section class="slide" data-center="71.4180,51.0902" data-zoom="14.5">
-    <div class="kicker">06 · КОМАНДА И ПЛАН (15 БАЛЛОВ)</div>
+    <div class="kicker">06 · КОМАНДА И ROADMAP (15 БАЛЛОВ)</div>
     <h1>Мы уже собрали это.<br><em>MVP работает вживую.</em></h1>
-    <div class="grid2" style="margin-bottom:20px">
-      <div class="box blue">
-        <h3>Ералы Абуталифулы</h3>
-        <p style="color:var(--blue);font-weight:600;margin-bottom:6px">ML Engineer · Backend · Project Lead</p>
-        <p>Продакшен-опыт в автоматизации процессов, NLP/ASR, FastAPI/Django, Telegram-системах и визуализации данных (призёр OneIdea Championship 2026 / Efes Kazakhstan).</p>
+    <div class="grid2" style="margin-bottom:18px">
+      <div class="box blue team-card">
+        <img class="avatar" src="/assets/team_yeraly.jpg" alt="Ералы Абуталифулы">
+        <div>
+          <h3>Ералы Абуталифулы</h3>
+          <p style="color:var(--blue);font-weight:600;margin-bottom:5px;font-size:13px">ML Engineer · Backend · Project Lead</p>
+          <p style="font-size:13.5px">Продакшен-опыт в автоматизации, ASR/NLP, FastAPI/Django и визуализации данных (призёр OneIdea Championship 2026 / Efes Kazakhstan).</p>
+        </div>
       </div>
-      <div class="box">
-        <h3>Аделия</h3>
-        <p style="color:var(--blue);font-weight:600;margin-bottom:6px">ML Engineer · Backend · Data Visualization</p>
-        <p>Полный цикл разработки ML-моделей, серверной архитектуры и оперативной 3D-визуализации геоданных.</p>
+      <div class="box team-card">
+        <img class="avatar" src="/assets/team_adelia.jpg" alt="Аделия">
+        <div>
+          <h3>Аделия</h3>
+          <p style="color:var(--blue);font-weight:600;margin-bottom:5px;font-size:13px">ML Engineer · Backend · Data Viz</p>
+          <p style="font-size:13.5px">Полный цикл ML-моделей, бэкенд-архитектуры, пространственной аналитики и оперативной 3D-визуализации.</p>
+        </div>
       </div>
     </div>
     <div class="box grn" style="display:flex;justify-content:space-between;align-items:center;gap:16px">
       <div>
         <h3>Готовы к живой демонстрации прямо сейчас</h3>
-        <p>Нажмите кнопку справа — продиктуем реальный доклад в микрофон, утвердим HITL, запустим OSRM-маршрут по Астане и проверим SHA-256 аудит.</p>
+        <p>Продиктуем реальный доклад в микрофон на казахском или русском, утвердим HITL, запустим маршрут OSRM по Астане и проверим SHA-256 аудит.</p>
       </div>
       <a class="nav-btn pri" href="/" style="font-size:15px;padding:13px 22px;white-space:nowrap">▶ Запустить Live MVP</a>
     </div>
@@ -177,19 +201,19 @@
 
   <!-- SLIDE 8: LIVE STATUS & Q&A -->
   <section class="slide" data-center="71.4180,51.0902" data-zoom="14.6">
-    <div class="kicker">QYRAN 2.0 · IT FEST 2026 FINALS</div>
+    <div class="kicker">QYRAN 2.0 · IT FEST 2026 FINALS · ASTANA EXPO</div>
     <h1>Спасибо! <span class="bl">Вопросы жюри?</span></h1>
-    <p class="lead">Готовы протестировать систему на вашем голосе на казахском или русском прямо сейчас.</p>
-    <div class="grid3" id="liveHealthCards">
-      <div class="box"><span class="big-num" id="pGpu">GPU</span><h3>Локальный Whisper</h3><p id="pModel">Проверка /api/health…</p></div>
-      <div class="box grn"><span class="big-num" style="color:var(--grn)" id="pChain">VALID</span><h3>SHA-256 Аудит-цепь</h3><p id="pBlocks">SQLite WAL активна</p></div>
-      <div class="box blue"><span class="big-num" style="color:var(--blue)">0</span><h3>Облачных вызовов</h3><p>100% суверенный on-premise контур</p></div>
+    <p class="lead">Готовы протестировать QYRAN на вашем живом голосе прямо со сцены — на казахском или русском.</p>
+    <div class="grid3">
+      <div class="box"><span class="big-num" id="pGpu">CUDA</span><h3>Локальный Whisper</h3><p id="pModel">RTX 4050 · whisper-large-v3-turbo (fp16)</p></div>
+      <div class="box grn"><span class="big-num" style="color:var(--grn)" id="pChain">VALID ✔</span><h3>SHA-256 Аудит-цепь</h3><p id="pBlocks">SQLite WAL · Закон РК № 230-VIII</p></div>
+      <div class="box blue"><span class="big-num" style="color:var(--blue)">0</span><h3>Облачных AI-вызовов</h3><p>github.com/overloooooord/qyran</p></div>
     </div>
   </section>
 </main>
 
 <div class="foot-hint">
-  <span>← / → или Пробел — переключение слайдов</span>
+  <span>← / → или Пробел — слайды · 🖨 PDF — экспорт презентации</span>
   <span>QYRAN 2.0 · Astana EXPO · Закон РК № 230-VIII</span>
 </div>
 
@@ -198,16 +222,19 @@ const slides = Array.from(document.querySelectorAll('.slide'));
 const prog = document.getElementById('prog');
 let idx = 0;
 
-const map = new maplibregl.Map({
-  container: 'bgmap',
-  style: 'https://tiles.openfreemap.org/styles/dark',
-  center: [71.4180, 51.0902],
-  zoom: 14.2,
-  pitch: 54,
-  bearing: -18,
-  interactive: false,
-  attributionControl: false
-});
+let map = null;
+try {
+  map = new maplibregl.Map({
+    container: 'bgmap',
+    style: 'https://tiles.openfreemap.org/styles/dark',
+    center: [71.4180, 51.0902],
+    zoom: 14.2,
+    pitch: 54,
+    bearing: -18,
+    interactive: false,
+    attributionControl: false
+  });
+} catch {}
 
 slides.forEach((_, i) => {
   const s = document.createElement('span');
@@ -224,7 +251,7 @@ function show(n) {
   document.getElementById('cnt').textContent = `${idx + 1} / ${slides.length}`;
   const c = slides[idx].dataset.center.split(',').map(Number);
   const z = Number(slides[idx].dataset.zoom || 14);
-  if (map) map.flyTo({ center: c, zoom: z, speed: 0.7 });
+  if (map) try { map.flyTo({ center: c, zoom: z, speed: 0.7 }); } catch {}
 }
 
 document.addEventListener('keydown', (e) => {

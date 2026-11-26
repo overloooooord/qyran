@@ -208,6 +208,17 @@ class TestQyranCore(unittest.TestCase):
             self.assertEqual(r_b3.status_code, 200)
             self.assertTrue(r_b3.json()["sent"])
 
+            # Parallel x5 stress-burst triage
+            r_burst = client.post("/api/scenarios/astana_expo/stress-burst")
+            self.assertEqual(r_burst.status_code, 200)
+            self.assertEqual(r_burst.json()["processed_count"], 5)
+
+            # Grounded Commander Co-Pilot Q&A with Law No. 230-VIII provenance
+            r_cop = client.post("/api/copilot/ask", json={"question": "Дай полную сводку P1 и Закон 230-VIII"})
+            self.assertEqual(r_cop.status_code, 200)
+            self.assertTrue(r_cop.json()["grounded_only"])
+            self.assertIn("provenance", r_cop.json())
+
 
 if __name__ == "__main__":
     unittest.main()

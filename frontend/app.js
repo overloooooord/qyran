@@ -58,11 +58,11 @@
       m_over: 'Обзор',
       now_lbl: 'ОБСТАНОВКА',
       tab_ops: '🚒 Силы',
-      tab_cams: '📷 Камеры',
+      tab_cams: '📷 CV',
       tab_b3d: '🧊 3D',
       tab_law: '⚖️ Закон',
-      tab_bench: '🧪 AI WER',
-      tab_roi: '📊 ROI/Экспорт',
+      tab_bench: '🧪 WER',
+      tab_roi: '📊 ROI',
       foot_audit: '🔐 Криптографический аудит (SQLite · SHA-256 Hash Chain)',
       foot_brief: '📊 Автосводка смены (AI-Assisted · ст. 21)',
     },
@@ -83,11 +83,11 @@
       m_over: 'Шолу',
       now_lbl: 'ЖАҒДАЙ',
       tab_ops: '🚒 Күштер',
-      tab_cams: '📷 Камера',
+      tab_cams: '📷 CV',
       tab_b3d: '🧊 3D',
       tab_law: '⚖️ Заң',
-      tab_bench: '🧪 AI WER',
-      tab_roi: '📊 ROI/Есеп',
+      tab_bench: '🧪 WER',
+      tab_roi: '📊 ROI',
       foot_audit: '🔐 Криптографиялық аудит (SQLite · SHA-256)',
       foot_brief: '📊 Ауысым автосводкасы (AI-Assisted · 21-бап)',
     },
@@ -138,10 +138,18 @@
   }
 
   // =========================================================================
-  // 2. MapLibre GL 3D Map + Click-to-Inspect Grid Square
+  // 2. MapLibre GL 3D Map + Automatic Air-Gapped Offline Fallback + Click Inspector
   // =========================================================================
+  const OFFLINE_TACTICAL_STYLE = {
+    version: 8,
+    name: 'QYRAN Offline Tactical Dark',
+    sources: {},
+    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#090f19' } }],
+  };
+
   function initMap(center, zoom, pitch, bearing) {
     if (!window.maplibregl) return;
+    let switchedOffline = false;
     map = new maplibregl.Map({
       container: 'map',
       style: 'https://tiles.openfreemap.org/styles/dark',
@@ -153,12 +161,26 @@
       attributionControl: false,
     });
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-left');
-    map.on('load', () => {
+
+    const onStyleReady = () => {
       mapReady = true;
       ensure3DBuildings();
       setupMapSources();
       if (state) syncMapWithState();
+    };
+    map.on('load', onStyleReady);
+    map.on('style.load', () => {
+      if (switchedOffline) onStyleReady();
     });
+
+    // Air-gapped resilience: if external map tiles fail or stall >4.5s (e.g. bad EXPO Wi-Fi), switch cleanly to offline vector canvas!
+    setTimeout(() => {
+      if (!mapReady && !switchedOffline) {
+        switchedOffline = true;
+        console.info('Switching to QYRAN Offline Tactical Map style (air-gapped mode)');
+        map.setStyle(OFFLINE_TACTICAL_STYLE);
+      }
+    }, 4500);
 
     // Click anywhere on 3D map to inspect GPS + grid square & quick-plot test incident
     map.on('click', (e) => {
@@ -1425,6 +1447,55 @@
     }
   }
 
+  async function runStressBurst() {
+    if (!state) return;
+    const btn = $('#btnStressBurst');
+    btn.disabled = true;
+    btn.textContent = '⚡…';
+    try {
+      const resp = await fetch(`/api/scenarios/${state.scenario.id}/stress-burst`, { method: 'POST' });
+      if (resp.ok) {
+        const res = await resp.json();
+        state = res.state;
+        playTone('alert');
+        flashBanner(`⚡ ШКВАЛ ×${res.processed_count} ОБРАБОТАН ЗА ${res.elapsed_ms} мс (вручную: ~${Math.round(res.manual_equivalent_sec / 60)} мин!)`);
+        $('#nowTxt').textContent = `⚡ Стресс-тест: ${res.processed_count} параллельных докладов kk/ru нанесены на 3D-карту за ${res.elapsed_ms} мс!`;
+        if (mapReady) map.flyTo({ center: state.scenario.center, zoom: state.scenario.zoom - 0.6, pitch: 48 });
+        renderAll();
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '⚡ Шквал ×5';
+    }
+  }
+
+  async function askCopilot(question) {
+    const q = (question || '').trim();
+    if (!q) return;
+    const out = $('#copilotOut');
+    out.style.display = 'block';
+    out.innerHTML = `<span class="sub">⏳ Анализ оперативной базы…</span>`;
+    const resp = await fetch('/api/copilot/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, lang: uiLang }),
+    });
+    if (resp.ok) {
+      const res = await resp.json();
+      const cites = (res.citations || []).map((c) => `<span class="tag k">${esc(c)}</span>`).join(' ');
+      out.innerHTML = `
+        <div style="font-weight:700;color:#fff;margin-bottom:4px">🤖 ${esc(res.headline)}</div>
+        <ul style="margin-left:15px;color:#cbd5e1">${(res.bullets || []).map((b) => `<li>${esc(b)}</li>`).join('')}</ul>
+        <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+          ${cites}
+          <span class="tag ai" style="margin-left:auto">ст. 21 · Grounded</span>
+        </div>`;
+      // refresh audit log
+      const stR = await fetch('/api/state');
+      if (stR.ok) { state = await stR.json(); renderFooter(); }
+    }
+  }
+
   async function simulateTamperAttack() {
     const resp = await fetch('/api/audit/simulate-tamper', { method: 'POST' });
     if (!resp.ok) return;
@@ -1498,7 +1569,13 @@
     $('#scenarioSel').onchange = (e) => switchScenario(e.target.value);
     $('#btnReset').onclick = () => switchScenario($('#scenarioSel').value);
     $('#btnRunScenario').onclick = runFullScenario;
+    $('#btnStressBurst').onclick = runStressBurst;
     $('#btnStopScenario').onclick = () => { stopRequested = true; if (currentAudio) currentAudio.pause(); };
+
+    // Grounded Commander Co-Pilot
+    $('#btnAskCopilot').onclick = () => { askCopilot($('#copilotInput').value); $('#copilotInput').value = ''; };
+    $('#copilotInput').onkeydown = (e) => { if (e.key === 'Enter') { askCopilot($('#copilotInput').value); $('#copilotInput').value = ''; } };
+    $$('#copilotQuick .schip').forEach((el) => (el.onclick = () => askCopilot(el.dataset.q)));
     $('#btnPtt').onclick = toggleMicRecording;
     $('#btnUpload').onclick = () => $('#audioFile').click();
     $('#audioFile').onchange = (e) => { const f = e.target.files[0]; if (f) uploadAudioBlob(f, f.name); e.target.value = ''; };
