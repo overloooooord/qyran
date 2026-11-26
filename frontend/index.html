@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QYRAN 2.0 — Голос → 3D Оперативная Карта · IT FEST 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div id="app">
+  <!-- TOP COMMAND BAR -->
+  <header>
+    <div class="logo">
+      <span class="dot"></span>
+      <span>QYRAN</span>
+      <span class="ver">2.0 · EXPO ASTANA</span>
+    </div>
+
+    <select id="scenarioSel" title="Выбор оперативного сценария">
+      <option value="astana_expo">🇰🇿 Астана · МВЦ EXPO / ЧС-112</option>
+      <option value="almaty_zenkova">📍 Алматы · Зенкова 24 (10 клипов)</option>
+    </select>
+
+    <div class="chips">
+      <span class="chip ok hide-md" title="Все модели ASR и NLP выполняются локально">🔒 <b>ON-PREM</b> · 0 cloud</span>
+      <span class="chip ok" id="chipAsr" title="Локальная модель Whisper Large v3 Turbo">⚡ <b id="asrDevice">прогрев…</b></span>
+      <span class="chip law" id="chipLaw" title="Открыть паспорт Закона РК № 230-VIII">⚖️ №230-VIII <b id="kLawScore">100%</b></span>
+      <span class="chip hide-md"><span data-i18n="kpi_thr">Угроз</span> <b id="kThr" style="color:var(--red)">0</b></span>
+      <span class="chip warn" id="chipHitl" title="Ожидают утверждения оператором">⏳ HITL <b id="kHitl">0</b></span>
+      <button class="sm amb" id="btnPitch" title="Открыть интерактивный питч-дек IT FEST 2026">🎯 Питч</button>
+      <button class="sm" id="btnStageXl" title="Режим проектора / крупнее (клавиша P)">📺 XL</button>
+      <button class="sm" id="btnSfx" title="Звуковые сигналы пульта">🔊</button>
+      <button class="sm" id="btnLang" title="Переключить язык интерфейса">🇰🇿/🇷🇺</button>
+      <button class="sm" id="btnHelp" title="Тур и горячие клавиши">?</button>
+      <button class="sm" id="btnReset" title="Сбросить сессию">↻</button>
+      <div id="clock">14:10:00</div>
+    </div>
+  </header>
+
+  <!-- LEFT: LIVE AUDIO INGEST & TRANSCRIPT STREAM -->
+  <section class="col" id="left">
+    <div class="ph">
+      <span class="h" data-i18n="air_title">Эфир и живой микрофон</span>
+      <span id="airState" class="air-status idle">ожидание</span>
+    </div>
+
+    <div id="radio-console">
+      <div class="air-meta">
+        <span><b id="airFrom">Готов к приёму</b> → <span id="airTo">Орталық-112</span></span>
+        <span id="airTelemetry" class="mono">Whisper local</span>
+      </div>
+
+      <canvas id="wave" width="680" height="80"></canvas>
+
+      <div class="stage">
+        <span id="st1">1. DSP/SNR</span>
+        <span id="st2">2. Whisper GPU</span>
+        <span id="st3">3. Repair+NER</span>
+        <span id="st4">4. 3D+SHA256</span>
+      </div>
+
+      <!-- Giant Stage-Ready Primary Actions -->
+      <div class="hero-ctls">
+        <button class="pri" id="btnRunScenario" data-i18n="btn_run">▶ Живой эфир (GPU)</button>
+        <button id="btnPtt" data-i18n="btn_ptt">🎙 Говорить [Space]</button>
+      </div>
+
+      <!-- Collapsible Advanced Radio / Clips / Upload Controls -->
+      <details class="adv-drawer" open id="advDrawer">
+        <summary>
+          <span data-i18n="adv_lbl">⚙ Клипы сценария · Радиофильтр · Файл WAV</span>
+          <span style="display:flex;gap:4px">
+            <button class="sm" id="btnStopScenario" disabled onclick="event.stopPropagation()">⏹ Стоп</button>
+            <button class="sm" id="btnUpload" onclick="event.stopPropagation()" title="Загрузить WAV/MP3/OGG">📂 Аудио</button>
+          </span>
+        </summary>
+        <input type="file" id="audioFile" accept="audio/*" style="display:none">
+
+        <div class="opt-row">
+          <select id="asrLangSel" style="padding:3px 6px;font-size:11px">
+            <option value="auto">🌐 Авто (kk / ru)</option>
+            <option value="kk">🇰🇿 Қазақша (kk)</option>
+            <option value="ru">🇷🇺 Русский (ru)</option>
+          </select>
+          <label title="Пропустить микрофон/файл через полосовой фильтр рации 300–3400 Гц + шум">
+            <input type="checkbox" id="chkRadioDegrade"> 📻 Радио 300–3400 Гц
+          </label>
+          <label title="Озвучивать голосом критические события P1">
+            <input type="checkbox" id="chkTts"> 🗣 Озвучка
+          </label>
+        </div>
+
+        <div class="clip-strip" id="clipStrip"></div>
+      </details>
+
+      <div class="text-in-row">
+        <input type="text" id="txtInput" placeholder="Радиодоклад (kk/ru): напр. «Пожар у Байтерека» + Enter…">
+        <button class="blue sm" id="btnSendTxt">➜</button>
+      </div>
+      <div class="sample-chips" id="sampleChips"></div>
+    </div>
+
+    <div class="ph">
+      <span class="h" data-i18n="feed_title">Лента расшифровок (AI Diff)</span>
+      <span class="sub mono" id="avgLat">ready</span>
+    </div>
+    <div class="scroll" id="feed"></div>
+  </section>
+
+  <!-- CENTER: 3D OPERATIONAL MAP + MANDATORY HITL GATE -->
+  <section id="mapwrap">
+    <div id="map"></div>
+
+    <div class="mo" id="legend">
+      <span><i style="background:var(--red)"></i><span data-i18n="leg_p1">P1 Критично</span></span>
+      <span><i style="background:var(--amb)"></i><span data-i18n="leg_p2">P2 Оперативно</span></span>
+      <span><i style="background:var(--grn)"></i><span data-i18n="leg_ok">Решено</span></span>
+      <span><i style="background:var(--blue)"></i><span data-i18n="leg_own">Службы (OSRM)</span></span>
+    </div>
+
+    <div class="mo" id="flash-banner"></div>
+
+    <div class="mo" id="modes">
+      <button class="sm on" data-m="all" data-i18n="m_all">Всё</button>
+      <button class="sm" data-m="thr" data-i18n="m_thr">Угрозы</button>
+      <button class="sm" data-m="own" data-i18n="m_own">Службы</button>
+      <button class="sm" id="btn3d">3D</button>
+      <button class="sm" id="btnOverview" data-i18n="m_over">Обзор</button>
+    </div>
+
+    <!-- Mandatory Human-in-the-Loop Decision Gate -->
+    <div class="mo" id="hitl-overlay"></div>
+
+    <div class="mo" id="now-banner">
+      <span class="lbl" data-i18n="now_lbl">ОБСТАНОВКА</span>
+      <span id="nowTxt">Система QYRAN 2.0 готова. Нажмите «▶ Живой эфир (GPU)», [Space] для микрофона, или кликните по карте.</span>
+    </div>
+  </section>
+
+  <!-- RIGHT: 6 MISSION-CRITICAL TABS (Hotkeys 1..6) -->
+  <section class="col" id="right">
+    <div class="tabs">
+      <button class="on" data-t="ops" data-i18n="tab_ops">🚒 Силы</button>
+      <button data-t="cams" data-i18n="tab_cams">📷 Камеры</button>
+      <button data-t="b3d" data-i18n="tab_b3d">🧊 3D</button>
+      <button data-t="law" data-i18n="tab_law">⚖️ Закон</button>
+      <button data-t="bench" data-i18n="tab_bench">🧪 AI WER</button>
+      <button data-t="roi" data-i18n="tab_roi">📊 ROI/Экспорт</button>
+    </div>
+
+    <div class="scroll">
+      <!-- Tab 1: Units, Tasks & Pending HITL -->
+      <div class="pane on" id="p-ops">
+        <div class="sec-title"><span>⚖️ Очередь решений HITL (Enter — утвердить)</span><span class="mono" id="hitlCntLbl">0</span></div>
+        <div id="hitlQueue"></div>
+
+        <div class="sec-title"><span>📋 Задачи и контроль молчания</span><span class="mono" id="taskCntLbl">0</span></div>
+        <div id="taskList"></div>
+
+        <div class="sec-title"><span>🚒 Подразделения (клик — перелёт)</span><span class="mono" id="unitCntLbl">0</span></div>
+        <div id="unitList"></div>
+      </div>
+
+      <!-- Tab 2: Live CCTV/Thermal Feeds + Real On-Premise Image Analyzer -->
+      <div class="pane" id="p-cams">
+        <div class="sec-title"><span>📷 Оперативные камеры и тепловизоры (sync)</span><span class="badge b-on">4 LIVE</span></div>
+        <div class="cams-grid" id="camsGrid"></div>
+
+        <div class="sec-title">
+          <span>🔬 Живой Edge-Vision анализатор кадра (огонь / дым)</span>
+        </div>
+        <div class="card">
+          <div class="cmeta" style="color:#cbd5e1;margin-bottom:7px">
+            Загрузите любое фото/кадр с камеры или дрона — локальный анализатор (`PIL + NumPy`, 0 cloud) проверит тепловые/дымовые аномалии и перекрёстно подтвердит голосовой инцидент в SHA-256 журнале.
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="blue sm" id="btnUploadImg">📷 Загрузить кадр (.jpg/.png)</button>
+            <button class="sm amb" id="btnTestFireImg">🔥 Тест-кадр очага</button>
+            <input type="file" id="imgFile" accept="image/*" style="display:none">
+          </div>
+          <div id="visionResult" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Interactive 3D Multi-Floor Building -->
+      <div class="pane" id="p-b3d">
+        <div class="sec-title"><span id="b3dTitle">МВЦ EXPO · Павильон C2</span><span class="sub">мышью — вращать</span></div>
+        <div class="floor-pills" id="floorPills"></div>
+        <canvas id="b3d" width="720" height="500"></canvas>
+        <div style="display:flex;gap:6px;margin-top:7px">
+          <select id="b3dUnitSel" style="flex:1;font-size:11.5px"></select>
+          <button class="grn sm" id="btnSend3dPlan">📤 Передать 3D-план группе</button>
+        </div>
+        <div class="note" id="b3dNote"></div>
+      </div>
+
+      <!-- Tab 4: Responsible AI & Kazakhstan Law No. 230-VIII -->
+      <div class="pane" id="p-law">
+        <div class="law-banner">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:700;color:#fff;font-size:12.5px">Закон РК № 230-VIII «Об ИИ»</div>
+              <div class="sub">Вступил в силу 18.01.2026 · Уровень: <b style="color:var(--amb)">Высокий риск</b></div>
+            </div>
+            <div class="score" id="lawScoreBig">100%</div>
+          </div>
+        </div>
+
+        <div class="toggle-box">
+          <label>
+            <span><b>Строгий HITL (ст. 19)</b> — запрет авто-действий P1/P2</span>
+            <input type="checkbox" id="chkStrictHitl" checked>
+          </label>
+          <label>
+            <span><b>Авто-редакция ПДн (Закон № 94-V)</b> в отчётах</span>
+            <input type="checkbox" id="chkPiiRedact" checked>
+          </label>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
+            <span class="sub" style="white-space:nowrap">Оператор:</span>
+            <input type="text" id="inpOperator" value="Дежурный ЦОУ-112 (Астана)" style="flex:1;font-size:11px">
+            <button class="sm" id="btnSaveOp">OK</button>
+          </div>
+        </div>
+
+        <div class="sec-title">
+          <span>🔐 Целостность журнала (SHA-256)</span>
+          <div style="display:flex;gap:4px">
+            <button class="sm grn" id="btnVerifyChain">🔍 Проверить</button>
+            <button class="sm pri" id="btnSimTamper" title="Изолированная симуляция подмены записи #1 (рабочая БД не затрагивается)">⚡ Тест взлома</button>
+          </div>
+        </div>
+        <div class="card" id="chainCard"></div>
+        <div id="tamperResult"></div>
+
+        <div class="sec-title"><span>📋 Контрольный лист Закона РК № 230-VIII</span></div>
+        <div id="lawChecks"></div>
+
+        <div class="pii-box">
+          <div style="font-weight:700;font-size:11.5px;color:#fff">🛡 Живая проверка маскирования ПДн (ИИН, тел., госномера)</div>
+          <textarea id="piiInput">Гражданин Иванов Асан, ИИН 040512500123, тел +7 705 193 82 42, авто 777 KZ 01 сообщил о задымлении.</textarea>
+          <button class="sm blue" id="btnTestPii">🔒 Применить маскирование ПДн</button>
+          <div class="pii-out" id="piiOutput" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Live AI Benchmark -->
+      <div class="pane" id="p-bench">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700;color:#fff;font-size:13px">Живой бенчмарк Whisper + AI Repair</div>
+            <div class="sub">Реальный прогон всех WAV-клипов на GPU с замером WER/CER</div>
+          </div>
+          <button class="pri sm" id="btnRunBench">▶ Запустить</button>
+        </div>
+        <div id="benchContent">
+          <div class="note">
+            Нажмите <b>«▶ Запустить»</b> — QYRAN вживую прогонит все реальные радиозаписи активного сценария через локальный <code>whisper-large-v3-turbo</code> + ремонт QYRAN и покажет точное снижение <b>WER / CER</b>, латентность (<b>ms</b>) и перехваченные галлюцинации.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 6: Live ROI Analytics, B2G/B2B Calculator, Dispatch & 5 Exports -->
+      <div class="pane" id="p-roi">
+        <div class="sec-title"><span>⚡ Эффект текущей сессии (До / После QYRAN)</span></div>
+        <div class="kpi4" id="roiLiveKpis"></div>
+        <div class="card" id="latChartCard"></div>
+
+        <div class="sec-title"><span>💼 Калькулятор B2G / B2B масштабирования (ARR)</span></div>
+        <div class="roi-calc">
+          <div class="roi-slider">
+            <div><span>Объектов / Ситуационных центров:</span><b class="mono" id="lblFac">10</b></div>
+            <input type="range" id="rngFac" min="1" max="100" value="10">
+          </div>
+          <div class="roi-slider">
+            <div><span>Лицензия за объект в год (млн ₸):</span><b class="mono" id="lblPrice">4.5 млн ₸</b></div>
+            <input type="range" id="rngPrice" min="2" max="12" step="0.5" value="4.5">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <div class="bkpi"><b id="roiArrKzt" style="color:var(--grn)">45.0 млн ₸</b><span>ARR в год (₸)</span></div>
+            <div class="bkpi"><b id="roiArrUsd" style="color:var(--blue)">~$90K</b><span>ARR в год (USD)</span></div>
+          </div>
+        </div>
+
+        <div class="sec-title"><span>📤 Экспорт (Стандарты + ст. 21 Закона РК)</span></div>
+        <div class="exp-grid">
+          <button class="amb sm" id="expPdf" style="grid-column:1/3">🖨 Официальный отчёт · Печать / PDF (ст. 21 + SHA-256)</button>
+          <button class="grn sm" id="expMd">⬇ Отчёт .md (JSON-LD)</button>
+          <button class="blue sm" id="expCot">⬇ TAK / CoT .xml</button>
+          <button class="sm" id="expGeo">⬇ GeoJSON слой</button>
+          <button class="sm" id="expAudit">⬇ SHA-256 Аудит .json</button>
+        </div>
+
+        <div class="sec-title"><span>🚨 Вызов служб в 1 клик</span></div>
+        <div style="display:flex;gap:4px;margin-bottom:7px" id="chanSel">
+          <button class="sm blue" data-ch="radio">📻 Рация</button>
+          <button class="sm" data-ch="sip">☎ SIP 112</button>
+          <button class="sm" data-ch="tg">✈ Telegram</button>
+          <button class="sm" data-ch="sms">✉ SMS</button>
+        </div>
+        <div class="svc-grid" id="svcGrid"></div>
+        <div id="dispatchLog"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER: TAMPER-EVIDENT CRYPTOGRAPHIC AUDIT CHAIN + SHIFT BRIEF -->
+  <footer>
+    <div class="col">
+      <div class="ph">
+        <span class="h" data-i18n="foot_audit">🔐 Криптографический аудит (SQLite · SHA-256 Hash Chain)</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="badge b-pass" id="footChainBadge">SHA-256 VALID</span>
+          <button class="sm" id="btnFootAudit">⬇ .json</button>
+        </div>
+      </div>
+      <div class="scroll audit-list" id="auditList"></div>
+    </div>
+
+    <div class="col">
+      <div class="ph">
+        <span class="h" data-i18n="foot_brief">📊 Автосводка смены (AI-Assisted · ст. 21)</span>
+        <div style="display:flex;gap:5px">
+          <button class="amb sm" id="btnFootPdf">🖨 PDF</button>
+          <button class="pri sm" id="btnFootRep">⬇ .md</button>
+        </div>
+      </div>
+      <div class="scroll" id="brief-pane">
+        <div class="brief-kpis">
+          <div class="bkpi"><b id="bMsg">0</b><span>эфир</span></div>
+          <div class="bkpi"><b id="bThr" style="color:var(--red)">0</b><span>угроз</span></div>
+          <div class="bkpi"><b id="bKk" style="color:var(--blue)">0%</b><span>қазақша</span></div>
+          <div class="bkpi"><b id="bMs" style="color:var(--grn)">0 ms</b><span>ASR GPU</span></div>
+        </div>
+        <ul id="brief-list"><li>Ожидание радиодокладов…</li></ul>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- Help & Hotkeys Modal -->
+<div class="modal-bg" id="helpModal">
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h2>🎯 QYRAN 2.0 · Быстрый гид и горячие клавиши</h2>
+      <button class="sm" id="btnCloseHelp">✕ Закрыть</button>
+    </div>
+    <p class="sub" style="font-size:13px;color:#cbd5e1;margin-bottom:12px">
+      Полноценный локальный ИИ-пульт для ситуационных центров 112 / МЧС и критической инфраструктуры. Все нейросети работают 100% on-premise без внешнего облака.
+    </p>
+    <div class="hk-grid">
+      <div class="hk-item"><span>🎙 Начать / остановить запись микрофона</span><span class="kbd">Space</span></div>
+      <div class="hk-item"><span>✔ Утвердить активное HITL-решение</span><span class="kbd">Enter</span></div>
+      <div class="hk-item"><span>📺 Режим проектора XL (для сцены)</span><span class="kbd">P</span></div>
+      <div class="hk-item"><span>📑 Переключение вкладок справа</span><span class="kbd">1 – 6</span></div>
+      <div class="hk-item"><span>📍 Клик по любой точке 3D-карты</span><span class="kbd">Click</span></div>
+      <div class="hk-item"><span>🎯 Интерактивный питч-дек IT FEST 2026</span><span class="kbd">/pitch</span></div>
+    </div>
+    <div class="note" style="font-size:12px;color:#e2e8f0">
+      <b>Сценарий живой защиты за 2 минуты:</b><br>
+      1. Нажмите <b>«▶ Живой эфир (GPU)»</b> — слушайте реальный казахско-русский радиоэфир EXPO Астана и смотрите живые исправления Whisper.<br>
+      2. Нажмите <b>Enter</b> (или <b>✔ Утвердить</b>) на карточке HITL — расчёт поедет по реальным улицам Астаны (OSRM) с записью в SHA-256 журнал.<br>
+      3. Нажмите <b>Space</b> и скажите вживую: <i>«Пожар возле Байтерека!»</i> — QYRAN мгновенно поставит метку, выберет ближайший расчёт и посчитает OSRM ETA.<br>
+      4. Откройте <b>«⚖️ Закон» → «⚡ Тест взлома»</b> и <b>«🧪 AI WER» → «▶ Запустить»</b> для живого доказательства обоим жюри (Human + AI).
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

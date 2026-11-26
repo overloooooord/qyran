@@ -1,62 +1,51 @@
-# QYRAN Architecture
-
-**QYRAN** is an on-premise AI layer over existing radio and phone communications that turns live **Kazakh (`kk`)** and **Russian (`ru`)** voice reports into a real-time **3D operational map**, prioritized incident feed, and commander action log.
-
----
-
-## 1. End-to-End Pipeline
+# QYRAN 2.0 — Архитектура системы (IT FEST 2026)
 
 ```text
-Radio / Phone Audio (kk · ru)
-   │  300–3400 Hz analog/digital channel via Hardware Gateway (Almaty FabLab)
-   ▼
-Local Speech Recognition (On-Premise)
-   │  kazakh-whisper-turbo (4 CPU cores offline; 3.40–4.37 s per ~4 s clip)
-   ▼
-Contextual LLM Repair & Spatial Entity Extraction
-   │  Fixes radio ASR artifacts (e.g. "дұран" -> "дрон", "Сумкар" -> "Сұңқар")
-   │  Extracts: caller, recipient, incident type, grid/address, floor, count, altitude, heading, action
-   ▼
-3D Operational Map & Command Console (MapLibre GL + OpenFreeMap)
-   ├── City-scale 3D map markers, drone tracks, perimeter zones, unit routing
-   ├── Multi-floor indoor 3D schematic (floor threats, evacuees, response forces)
-   ├── Commander decision queue + one-click response & auto-report export
-   └── Telegram P1 alerts & full audit log
+[Аналоговая/цифровая рация · Живой микрофон PTT · WAV/MP3 загрузка]
+        │  16 kHz mono (ffmpeg) · опц. радиофильтр 300–3400 Гц (scipy Butterworth)
+        ▼
+[Audio DSP & Telemetry — backend/audio_dsp.py]
+        │  Расчёт SNR (дБ), RMS, Voice Activity Ratio, 64-bin waveform
+        ▼
+[On-Premise Bilingual ASR — backend/asr_engine.py]
+        │  openai/whisper-large-v3-turbo (CUDA fp16 / CPU, local_files_only=True)
+        │  + Анти-галлюцинационный детектор и двуязычный рескоринг KK / RU
+        │  + Калиброванная уверенность по softmax-логитам токенов
+        ▼
+[Contextual Repair + Spatial NER + XAI — backend/nlp_engine.py]
+        │  Опц. локальный LLM (LM Studio/Ollama на localhost) + доменная радио-коррекция
+        │  + Пословный Diff (сырой ASR → исправленный текст)
+        │  + Извлечение: позывные, класс, P1–P4, квадрат/ориентир, этаж, кол-во, высота, курс
+        │  + Сверка с датчиками (CAM / SCADA / IoT) + XAI-факторы
+        ▼
+[Responsible AI Gate — backend/compliance.py & backend/audit.py]
+        │  Закон РК № 230-VIII: ст. 17–19 (Высокий риск + строгий HITL), ст. 21 (JSON-LD)
+        │  SQLite WAL + SHA-256 Hash Chain (неизменяемый криптографический журнал)
+        │  Маскирование ПДн (ИИН, телефоны, госномера, ФИО — Закон РК № 94-V)
+        ▼
+[Real-Time Broadcast & Interoperability — backend/app.py & backend/exporters.py]
+        ├── WebSocket /ws → 3D Оперативная консоль (MapLibre GL + OSRM + 3D-объект)
+        ├── TAK / CoT 2.0 XML (интеграция с ATAK / ЦОУ / ГИС)
+        ├── GeoJSON + JSON-LD Provenance
+        ├── Отчёт смены Markdown (ст. 21 + ПДн-редакция + SHA-256 Head)
+        └── Опц. Telegram Bot P1 Alert (или air-gapped dry-run)
 ```
 
----
+## Основные API-эндпоинты
 
-## 2. Core Components in This Repository
-
-| Component | Path | Description |
+| Метод | Путь | Назначение |
 |---|---|---|
-| **AI Command Console** | [`index.html`](../index.html) | Self-contained dark command console with 10 embedded Kazakh/Russian radio WAV transmissions, real-time audio waveform, Whisper-kk ASR + LLM diff highlight, MapLibre GL 3D map (`Zenkova 24` scenario), multi-floor building viewer, task tracking (`ПРИНЯЛ → В ПУТИ → НА МЕСТЕ → ВЫПОЛНЕНО`), and one-click report export. |
-| **Live Voice-to-Map Demo** | [`demo/live.html`](../demo/live.html) | Lightweight interactive console supporting browser mic / text input for instant Almaty grid/landmark incident plotting. |
-| **Interactive 3D Pitch** | [`demo/pitch.html`](../demo/pitch.html) | 13-slide interactive web pitch deck with live MapLibre 3D backgrounds and interactive command demo. |
-| **Operator Manual** | [`demo/manual.html`](../demo/manual.html) | Bilingual Russian + Kazakh operator walkthrough covering radio feed, map layers, 3D building view, and report generation. |
-| **Radio Audio Dataset** | [`data/radio_kk/`](../data/radio_kk/) | 10 mono 16 kHz WAV radio clips (`t01.wav`–`t10.wav`) and [`transcripts.txt`](../data/radio_kk/transcripts.txt) with ground truth, raw `kazakh-whisper-turbo` ASR output, and CPU timings. |
-| **Pitch Deck PDF** | [`docs/QYRAN_pitch.pdf`](QYRAN_pitch.pdf) | Full 14-page presentation prepared for Defense Tech Hub x MOST Property Pitch Competition. |
-
----
-
-## 3. ASR Benchmark (`kazakh-whisper-turbo`)
-
-Audio samples in [`data/radio_kk/`](../data/radio_kk/) simulate noisy radio transmissions (Kazakh/Russian speech filtered to 300–3400 Hz with channel noise, squelch clicks, and call tones). Speech recognition runs **offline on 4 CPU cores** using `kazakh-whisper-turbo`:
-
-- **Clip duration:** ~3.4–4.4 seconds per transmission (`t01.wav`–`t10.wav`)
-- **Offline CPU inference time:** `3.40 s` to `4.37 s` (documented in `data/radio_kk/transcripts.txt`)
-- **Contextual LLM corrections:** Domain post-processing repairs common radio distortion errors before spatial plotting:
-  - `дұран` → `дрон` (`t06.wav`)
-  - `дүркіт` → `Бүркіт` (`t03.wav`)
-  - `қосшаңыз` → `қоршаңыз` (`t04.wav`)
-  - `сумкар` → `Сункар`, `вижу дом на крыше` → `дым на крыше` (`t07.wav`)
-
----
-
-## 4. Deployment & Roadmap
-
-- **Current Stage (Working MVP):** Real-time voice-to-3D-map UI, bilingual `kk`/`ru` offline ASR pipeline, entity extraction, and operator workflow simulation.
-- **1–3 Months:** Production on-premise AI bundle, Telegram P1 alert integration, and hardware radio gateway prototype built with **Almaty FabLab**.
-- **3–6 Months:** Single-facility customer pilot + multimodal ingestion (YOLO / Frigate NVR cameras, GPS/Meshtastic trackers, and ESP32 Wi-Fi CSI indoor sensing).
-
-> **Demo Transparency:** In this standalone browser demo, radio transmissions are pre-recorded synthetic training clips processed through local `kazakh-whisper-turbo` ASR, while camera detection, ESP32 Wi-Fi CSI indoor localization, and external dispatch calls are UI integration previews for the pilot phase.
+| `GET` | `/api/health` | Статус GPU/CPU, локального Whisper, локального LLM и цепи SHA-256 |
+| `GET` | `/api/state` | Полный снимок оперативной обстановки, HITL-очереди и compliance-паспорта |
+| `POST` | `/api/scenarios/{id}/activate` | Переключение сценария (`astana_expo` / `almaty_zenkova`) |
+| `POST` | `/api/scenarios/{id}/clip/{cid}` | Живое распознавание радиозаписи через локальный Whisper GPU |
+| `POST` | `/api/ingest/audio` | Приём живого микрофона (PTT) или WAV/MP3 файла (с опц. радиофильтром) |
+| `POST` | `/api/ingest/text` | Текстовый ввод радиодоклада (kk/ru) |
+| `POST` | `/api/recommendations/{id}/decide` | Обязательное решение оператора HITL (`APPROVED` / `REJECTED`) |
+| `POST` | `/api/benchmark/run` | Живой прогон WER/CER + latency + RTF бенчмарка на локальном Whisper |
+| `GET` | `/api/audit/verify` | Полная криптографическая верификация SHA-256 цепи в SQLite |
+| `POST` | `/api/compliance/redact-preview` | Живая проверка маскирования казахстанских ПДн (ИИН, тел., госномера) |
+| `GET` | `/api/export/report.md` | Официальный отчёт смены с двойной маркировкой ст. 21 и ПДн-редакцией |
+| `GET` | `/api/export/cot.xml` | Экспорт обстановки и подразделений в стандарт TAK / CoT 2.0 XML |
+| `GET` | `/api/export/geojson` | Экспорт ГИС-слоя GeoJSON с JSON-LD provenance |
+| `WS` | `/ws` | Поток событий в реальном времени для синхронизации пультов |
