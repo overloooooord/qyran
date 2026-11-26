@@ -262,7 +262,7 @@ class AuditDatabase:
         if not rows:
             return {
                 "simulated": False,
-                "note": "Журнал пуст — выполните хотя бы одно действие",
+                "note": "Журнал пуст: выполните хотя бы одно действие",
             }
         before_head = rows[-1]["entry_hash"]
         target = rows[0]

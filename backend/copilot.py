@@ -34,7 +34,7 @@ def answer_commander_question(question: str, snap: dict[str, Any], lang: str = "
     headline = ""
 
     if any(k in ql for k in ("закон", "230", "право", "аудит", "sha", "пдн", "иин", "заң", "қауіпсіздік")):
-        headline = f"Соответствие Закону РК № 230-VIII: {comp.get('compliance_score_pct', 100)}% (Высокий риск · ст. 17–21)"
+        headline = f"Соответствие Закону РК № 230-VIII: {comp.get('compliance_score_pct', 100)}% (Высокий риск · ст. 17-21)"
         bullets.append(
             f"Криптографическая цепь SQLite SHA-256: {'VALID ✔' if chain.get('valid') else 'BROKEN ✖'} "
             f"({chain.get('total_blocks', 0)} блоков, head `{str(chain.get('head_hash', ''))[:14]}…`)."
@@ -81,7 +81,7 @@ def answer_commander_question(question: str, snap: dict[str, Any], lang: str = "
         headline = f"Проверка достоверности докладов: {len(unverified)} требуют голосовой перепроверки"
         if unverified:
             for i in unverified:
-                bullets.append(f"⚠ #{i['id']} ({i['tx_id']}): {i['summary_ru']} — датчиками не подтверждён, запросите повтор у {i['source_callsign']}.")
+                bullets.append(f"⚠ #{i['id']} ({i['tx_id']}): {i['summary_ru']} (датчиками не подтверждён, запросите повтор у {i['source_callsign']}).")
                 citations.append(f"INC-#{i['id']}")
         else:
             bullets.append("Все текущие активные инциденты подтверждены камерами, SCADA или IoT-датчиками ✔.")
@@ -127,7 +127,7 @@ def answer_commander_question(question: str, snap: dict[str, Any], lang: str = "
         if pending_recs:
             top = pending_recs[-1]
             eta = f" (ETA ~{top['route_eta_min']} мин)" if top.get("route_eta_min") else ""
-            bullets.append(f"⏳ Приоритетное HITL-решение {top['id']}: {top['title']}{eta} — нажмите Enter для утверждения.")
+            bullets.append(f"⏳ Приоритетное HITL-решение {top['id']}: {top['title']}{eta}: нажмите Enter для утверждения.")
             citations.append(top["id"])
         if unverified:
             bullets.append(f"⚠ Внимание: {len(unverified)} доклад(а) без подтверждения датчиков ({', '.join('#'+str(x['id']) for x in unverified)}).")

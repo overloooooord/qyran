@@ -1,130 +1,131 @@
-# QYRAN 2.0 — Voice-to-3D Operational AI (IT FEST 2026 Finals MVP)
+# QYRAN 2.0
 
-**Ты говоришь — 3D-карта видит. Полностью on-premise, двуязычно (Қазақша + Русский), в полном соответствии с Законом РК № 230-VIII «Об искусственном интеллекте».**
+Система перевода голосовой радиосвязи на казахском и русском языках в оперативную 3D-карту для служб ЧС/112, ситуационных центров и объектов критической инфраструктуры. Работает полностью локально (on-premise), без отправки данных во внешние облачные сервисы.
 
 ![QYRAN Cover](assets/cover-1920x1080.png)
 
-[![Live Demo](https://img.shields.io/badge/Live%20Web%20Demo-GitHub%20Pages-ef4444)](https://overloooooord.github.io/qyran/)
+[![Live Demo](https://img.shields.io/badge/Web%20Demo-GitHub%20Pages-ef4444)](https://overloooooord.github.io/qyran/)
 [![Pitch IT FEST 2026](https://img.shields.io/badge/Pitch%20Deck-IT%20FEST%202026-38bdf8)](https://overloooooord.github.io/qyran/demo/pitch-itfest2026.html)
 [![Stack](https://img.shields.io/badge/Backend-FastAPI%20%2B%20WebSocket%20%2B%20SQLite-0ea5e9)]()
-[![ASR](https://img.shields.io/badge/ASR-Local%20Whisper%20Large%20v3%20Turbo%20(GPU%2FCPU)-22c55e)]()
-[![Compliance](https://img.shields.io/badge/Law-KZ%20No.%20230--VIII%20(18.01.2026)-f59e0b)]()
-[![Sovereignty](https://img.shields.io/badge/Cloud%20Egress-0%20External%20AI%20Calls-ef4444)]()
+[![ASR](https://img.shields.io/badge/ASR-Local%20Whisper%20(GPU%2FCPU)-22c55e)]()
+[![Law](https://img.shields.io/badge/Law-KZ%20No.%20230--VIII-f59e0b)]()
 
-## Быстрые ссылки (для жюри IT FEST 2026)
+## Ссылки и материалы (IT FEST 2026)
 
-- **Full-Stack Local AI MVP (основной продукт — Whisper GPU + OSRM + Закон РК № 230-VIII):** запустите `./run.sh` → `http://localhost:8000` (питч: `http://localhost:8000/pitch`)
-- **Интерактивный 3D Питч-дек IT FEST 2026 (в браузере):** [overloooooord.github.io/qyran/demo/pitch-itfest2026.html](https://overloooooord.github.io/qyran/demo/pitch-itfest2026.html)
-- **Standalone Web-демо консоли (без бэкенда):** [overloooooord.github.io/qyran](https://overloooooord.github.io/qyran/) · [Живой микрофон](https://overloooooord.github.io/qyran/demo/live.html) · [Руководство RU/KZ](https://overloooooord.github.io/qyran/demo/manual.html)
-- **Документация и финал IT FEST 2026:** [`docs/QYRAN_ITFEST2026_Pitch.pdf`](docs/QYRAN_ITFEST2026_Pitch.pdf) · [`docs/FINALIST_PITCH_SCRIPT.md`](docs/FINALIST_PITCH_SCRIPT.md) · [`docs/RESPONSIBLE_AI_KZ_230.md`](docs/RESPONSIBLE_AI_KZ_230.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-
----
-
-## Что реализовано в QYRAN 2.0 (Full-Stack Local AI MVP)
-
-QYRAN 2.0 — это **работающий full-stack ИИ-продукт** для ситуационных центров МЧС / 112, служб экстренного реагирования и операторов критической инфраструктуры (Астана · МВЦ EXPO и Алматы). В отличие от статических макетов, вся цепочка выполняется **вживую и локально**:
-
-1. **Реальный On-Premise Whisper ASR (`backend/asr_engine.py`)**:
-   - Локальная модель `openai/whisper-large-v3-turbo` на GPU (`CUDA fp16`, ~0.4–0.9 с на 10-секундную радиозапись — **11–18× быстрее реального времени**) или CPU fallback.
-   - **Автоматическое определение языка `kk` / `ru`** без переключения тумблеров (**100% точность на 18 реальных радиоклипах**).
-   - **Анти-галлюцинационный модуль + KK/RU рескоринг**: автоматически перехватывает классические галлюцинации Whisper на шумном радиоканале (например, `"Продолжение следует..."` на казахском радиоэфире) и восстанавливает точный текст.
-2. **Контекстная радио-коррекция + Пространственный NER + XAI (`backend/nlp_engine.py`)**:
-   - Исправляет реальные радиоискажения 300–3400 Гц (позывные, квадраты, термины ЧС: `дұром → дрон`, `дом на крыше → дым на крыше`, `мүрт оқшауыланды → өрт оқшауланды`, `қосшаңыз → қоршаңыз`) и подсвечивает каждое исправление в интерфейсе.
-   - Поддерживает опциональный локальный LLM через LM Studio / Ollama (`QYRAN_LLM_URL=http://localhost:1234/v1`) со строгой блокировкой любых облачных адресов.
-   - Извлекает координаты, квадрат, этаж, высоту, курс/вектор прогноза, количество пострадавших, приоритет `P1–P4`, сверяет доклад с датчиками (честно помечая неподтверждённые голосовые сообщения `⚠ Только голос`) и выдаёт прозрачное **XAI-обоснование**.
-3. **Ответственный ИИ и Закон РК № 230-VIII (`backend/compliance.py`, `backend/audit.py`)**:
-   - **Классификация риска (ст. 17–19)**: Система ИИ высокого риска (ЧС и критическая инфраструктура).
-   - **Строгий Human-in-the-Loop (ст. 19)**: Критические решения P1/P2 **никогда не исполняются автоматически** — каждое предложение ИИ требует явного `✔ Утвердить` / `✖ Отклонить` от оператора с фиксацией ФИО/позывного.
-   - **Двойная маркировка (ст. 21)**: Визуальный бейдж `🤖 AI-ASSISTED` + машиночитаемый блок `kz_ai_law_provenance` (JSON-LD + SHA-256) во всех карточках, отчётах Markdown, GeoJSON и TAK/CoT XML.
-   - **Криптографически неизменяемый журнал (SQLite SHA-256 Hash Chain)**: Каждое событие и решение командира связано криптографическим хешем с предыдущим блоком; кнопка `🔍 Проверить цепь` в реальном времени доказывает отсутствие подмены записей.
-   - **Защита ПДн (Закон РК № 94-V)**: Автоматическое маскирование казахстанских ИИН (12 цифр), номеров `+7 7XX`, госномеров авто (`777 KZ 01`), email и ФИО в экспортируемых отчётах + живой тестер в интерфейсе.
-4. **Два переключаемых сценария + Живой микрофон (PTT) + Загрузка аудио**:
-   - **Астана · МВЦ EXPO / Нұр-Әлем · ЧС-112** (8 радиозаписей `a01.wav–a08.wav`, реальные маршруты OSRM по улицам Левобережья Астаны, 3-этажный цифровой двойник Павильона C2).
-   - **Алматы · Зенкова 24** (10 радиозаписей `t01.wav–t10.wav`, реальные маршруты OSRM, 5-этажный 3D-план).
-   - **Живой микрофон PTT** (`MediaRecorder` → `ffmpeg` 16 kHz → опциональный радиофильтр 300–3400 Гц → Whisper GPU → 3D-карта).
-5. **Оперативная совместимость, Камеры/CV, ROI и Pitch Deck (`backend/exporters.py`, `backend/routing.py`, `backend/vision_engine.py`)**:
-   - **Динамический OSRM-роутинг для любой точки города** (18 ориентиров Астаны + 14 ориентиров Алматы): скажите в микрофон *«Пожар возле Байтерека!»* — QYRAN сам подберёт ближайший расчёт, рассчитает уличный маршрут и ETA, и отправит его после `✔ Утвердить`.
-   - **Камеры + Локальный Edge-Vision (`PIL + NumPy`)**: 4 синхронизированные камеры/тепловизора + загрузка любого фото/кадра на анализ огня и дыма с перекрёстной верификацией инцидента.
-   - **Изолированная симуляция атаки подмены SHA-256** (`⚡ Тест взлома`) во вкладке «⚖️ Закон» — наглядно доказывает жюри выявление подделки записи без повреждения рабочей БД.
-   - **Аналитика «До/После» + B2G/B2B ARR калькулятор** + **интерактивный 3D питч-дек IT FEST 2026** (`/pitch`).
-   - Экспорт в **🖨 Официальный PDF / Печать (`/api/export/report.html`)**, **Markdown + JSON-LD**, **TAK / CoT 2.0 XML**, **GeoJSON**, и **SHA-256 Аудит JSON**.
-   - **Удобство на сцене:** режим проектора **`📺 XL` (`P`)**, горячие клавиши **`Space`** (микрофон), **`Enter`** (утвердить HITL), **`1–6`** (вкладки), клик по любой точке 3D-карты для инспекции квадрата.
+- Локальный full-stack сервер (Whisper GPU/CPU + OSRM + аудит): `./run.sh` -> `http://localhost:8000` (презентация: `http://localhost:8000/pitch`)
+- Веб-презентация IT FEST 2026: [overloooooord.github.io/qyran/demo/pitch-itfest2026.html](https://overloooooord.github.io/qyran/demo/pitch-itfest2026.html)
+- Статическое веб-демо (без установки бэкенда): [overloooooord.github.io/qyran](https://overloooooord.github.io/qyran/) · [Живой микрофон](https://overloooooord.github.io/qyran/demo/live.html) · [Руководство RU/KZ](https://overloooooord.github.io/qyran/demo/manual.html)
+- Документация: [`docs/QYRAN_ITFEST2026_Pitch.pdf`](docs/QYRAN_ITFEST2026_Pitch.pdf) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/RESPONSIBLE_AI_KZ_230.md`](docs/RESPONSIBLE_AI_KZ_230.md) · [`docs/FINALIST_PITCH_SCRIPT.md`](docs/FINALIST_PITCH_SCRIPT.md)
 
 ---
 
-## Реальные замеры AI-качества (RTX 4050 GPU · Локально)
+## Что реализовано в MVP
 
-Проверено встроенным модулем `backend/benchmark.py` (можно запустить **вживую на сцене** во вкладке **«🧪 AI Бенчмарк»**):
+1. **Локальное распознавание речи (`backend/asr_engine.py`)**
+   - Используется `openai/whisper-large-v3-turbo` локально на GPU (`CUDA fp16`, в среднем 0.4-0.9 с на 10-секундный фрагмент) с автоматическим переключением на CPU.
+   - Автоматическое определение языка (`kk` / `ru`) без ручного переключения (100% на 18 тестовых клипах).
+   - Фильтр галлюцинаций Whisper на шумном радиоканале с повторным прогоном по двум языкам (`kk`/`ru`).
 
-| Сценарий | Клипов | Язык (авто) | Галлюцинаций перехвачено | WER сырой Whisper | WER после QYRAN Repair | Снижение WER | CER | Скорость |
+2. **Исправление радиоискажений и извлечение сущностей (`backend/nlp_engine.py`)**
+   - Восстановление слов, искаженных узкой полосой рации 300-3400 Гц (позывные, номера квадратов, термины ЧС: `дұром -> дрон`, `дом на крыше -> дым на крыше`, `қосшаңыз -> қоршаңыз`, `мүрт оқшауыланды -> өрт оқшауланды`) с подсветкой изменений в интерфейсе.
+   - Опциональное подключение локальной LLM через LM Studio или Ollama (`QYRAN_LLM_URL=http://localhost:1234/v1`). Внешние облачные адреса заблокированы.
+   - Извлечение адреса/квадрата, координат, этажа, высоты, направления, числа пострадавших, приоритета (`P1-P4`), проверка по датчикам и вывод пояснений (XAI).
+
+3. **Соответствие Закону РК № 230-VIII «Об искусственном интеллекте» (`backend/compliance.py`, `backend/audit.py`)**
+   - Классификация системы как высокорисковой (ст. 17-19: реагирование на ЧС и критическая инфраструктура).
+   - Обязательное подтверждение оператором (Human-in-the-Loop, ст. 19): критические рекомендации P1/P2 не выполняются автоматически, требуется явное подтверждение или отклонение.
+   - Двойная маркировка (ст. 21): пометка в интерфейсе и машиночитаемый блок `kz_ai_law_provenance` (JSON-LD + SHA-256) в отчетах, GeoJSON и CoT XML.
+   - Неизменяемый журнал аудита в SQLite на основе хеш-цепи SHA-256 с проверкой целостности и изолированным тестом на подмену записи.
+   - Автоматическое маскирование персональных данных при экспорте отчетов (ИИН, номера телефонов `+7 7XX`, госномера, email, ФИО по Закону РК № 94-V).
+
+4. **Два сценария, живой микрофон, маршруты OSRM и аналитика (`backend/scenarios.py`, `backend/routing.py`, `backend/vision_engine.py`, `backend/copilot.py`)**
+   - **Астана (МВЦ EXPO / ЧС-112):** 8 радиозаписей `a01.wav-a08.wav`, 18 ориентиров города, маршруты OSRM, 3-этажная схема павильона C2.
+   - **Алматы (Зенкова 24):** 10 радиозаписей `t01.wav-t10.wav`, 14 ориентиров, маршруты OSRM, 5-этажная схема здания.
+   - Поддержка записи с микрофона (PTT), загрузки аудиофайлов, имитации радиофильтра 300-3400 Гц, стресс-теста параллельной подачи 5 докладов, локального анализа кадров на огонь/дым (`PIL + NumPy`), текстовых запросов к оперативной базе (Co-Pilot) и экспорта в PDF/печать, Markdown, TAK/CoT XML, GeoJSON и JSON-аудит.
+   - Библиотека `maplibre-gl` сохранена локально в `frontend/vendor/`, при отсутствии сети карта автоматически переходит в офлайн-режим.
+
+---
+
+## Замеры точности и скорости (RTX 4050 GPU, локально)
+
+Метрики получены встроенным скриптом `backend/benchmark.py` (доступен в интерфейсе на вкладке `WER`):
+
+| Сценарий | Клипов | Авто-язык | Перехвачено срывов ASR | WER сырой Whisper | WER после коррекции | Снижение WER | CER | Скорость |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **Астана · МВЦ EXPO (ЧС-112)** | 8 (`75% kk / 25% ru`) | **100.0%** | **2** (`a02`, `a07`) | `28.2%` | **`3.1%`** | **`-89.0%`** | `6.1% → 0.6%` | `11–16× RT` |
-| **Алматы · Зенкова 24** | 10 (`90% kk / 10% ru`) | **100.0%** | 0 | `28.7%` | **`3.9%`** | **`-86.4%`** | `7.7% → 1.1%` | `10–18× RT` |
+| **Астана · МВЦ EXPO** | 8 (`75% kk / 25% ru`) | **100.0%** | 2 (`a02`, `a07`) | `28.2%` | **`3.1%`** | **`-89.0%`** | `6.1% -> 0.6%` | `11-16x RT` |
+| **Алматы · Зенкова 24** | 10 (`90% kk / 10% ru`) | **100.0%** | 0 | `28.7%` | **`3.9%`** | **`-86.4%`** | `7.7% -> 1.1%` | `10-18x RT` |
 
 ---
 
-## Быстрый запуск (1 команда)
+## Запуск локально
 
 ```bash
 cd /home/caterinw/Downloads/qyran
 ./run.sh
 ```
 
-Откройте в браузере: **http://localhost:8000**
+Открыть в браузере: `http://localhost:8000` (презентация: `http://localhost:8000/pitch`).
 
-### Запуск автотестов
+### Проверка автотестами
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-### Переменные окружения (опционально)
+### Основные переменные окружения
 
 | Переменная | По умолчанию | Описание |
 |---|---|---|
-| `PORT` | `8000` | Порт FastAPI-сервера |
-| `QYRAN_WHISPER_MODEL` | `openai/whisper-large-v3-turbo` | Локальная модель Whisper |
-| `QYRAN_LOCAL_ONLY` | `1` | Строгий offline-режим HuggingFace (`local_files_only=True`) |
-| `QYRAN_LLM_URL` | `http://localhost:1234/v1` | Опциональный локальный LLM (LM Studio / Ollama; внешние URL блокируются) |
-| `QYRAN_TG_BOT_TOKEN` / `QYRAN_TG_CHAT_ID` | *(пусто)* | Live-отправка P1-алертов в Telegram (без токена — air-gapped dry-run) |
+| `PORT` | `8000` | Порт HTTP/WebSocket сервера |
+| `QYRAN_WHISPER_MODEL` | `openai/whisper-large-v3-turbo` | Идентификатор локальной модели Whisper |
+| `QYRAN_LOCAL_ONLY` | `1` | Работа только из локального кэша (`local_files_only=True`) |
+| `QYRAN_LLM_URL` | `http://localhost:1234/v1` | Адрес локальной LLM (LM Studio / Ollama) |
+| `QYRAN_TG_BOT_TOKEN` / `QYRAN_TG_CHAT_ID` | *(пусто)* | Отправка P1-уведомлений в Telegram (без токена работает dry-run) |
 
 ---
 
-## Структура проекта
+## Структура репозитория
 
 ```text
 qyran/
-├── run.sh                              # Запуск сервера одной командой
-├── requirements.txt                    # Python-зависимости
+├── run.sh                              # Запуск сервера
+├── requirements.txt                    # Зависимости Python
 ├── backend/
 │   ├── app.py                          # FastAPI REST + WebSocket сервер
-│   ├── asr_engine.py                   # Локальный Whisper GPU/CPU + анти-галлюцинационный рескоринг
-│   ├── audio_dsp.py                    # Декодирование 16 kHz, радиофильтр 300-3400 Гц, SNR, VAD
-│   ├── nlp_engine.py                   # Контекстная коррекция + двуязычный пространственный NER + XAI
-│   ├── compliance.py                   # Закон РК № 230-VIII (ст. 17-21), двойная маркировка, редакция ПДн
-│   ├── audit.py                        # SQLite WAL + криптографическая SHA-256 цепь аудита
-│   ├── exporters.py                    # TAK/CoT XML, GeoJSON, Markdown+JSON-LD, Telegram
-│   ├── benchmark.py                    # Живой бенчмарк WER/CER, RTF и латентности
-│   ├── scenarios.py                    # Сценарии Астана EXPO 2026 и Алматы Зенкова 24
-│   └── state.py                        # Оперативное состояние, HITL-очередь, контроль молчания
+│   ├── asr_engine.py                   # Локальный Whisper + фильтр галлюцинаций
+│   ├── audio_dsp.py                    # Декодирование 16 kHz, фильтр 300-3400 Гц, SNR
+│   ├── nlp_engine.py                   # Коррекция текста, извлечение сущностей, XAI
+│   ├── routing.py                      # Подбор ближайшего экипажа и маршрутизация OSRM
+│   ├── vision_engine.py                # Локальный анализ кадров на очаг огня и дым
+│   ├── copilot.py                      # Ответы по текущему состоянию сессии с ссылками на ID
+│   ├── compliance.py                   # Проверки по Закону РК № 230-VIII и маскирование ПДн
+│   ├── audit.py                        # SQLite WAL + хеш-цепь SHA-256
+│   ├── exporters.py                    # Экспорт: PDF/HTML, Markdown, TAK/CoT XML, GeoJSON
+│   ├── benchmark.py                    # Замер WER/CER и задержки на WAV-датасетах
+│   ├── scenarios.py                    # Конфигурация сценариев Астаны и Алматы
+│   └── state.py                        # Оперативное состояние, задачи и очередь HITL
 ├── frontend/
-│   ├── index.html                      # Консоль ситуационного центра
-│   ├── styles.css                      # Тёмная тактическая тема
-│   └── app.js                          # 3D MapLibre, живой PTT-микрофон, WebSocket, 3D-здание, Закон №230-VIII
+│   ├── index.html                      # Веб-консоль оператора
+│   ├── pitch.html                      # Интерактивная презентация (8 слайдов)
+│   ├── styles.css                      # Стили интерфейса
+│   ├── app.js                          # Логика карты, микрофона, WebSocket и вкладок
+│   └── vendor/                         # Локальные копии maplibre-gl.js и maplibre-gl.css
 ├── data/scenarios/
-│   ├── astana_expo/                    # a01.wav..a08.wav + routes.json (OSRM) + transcripts.txt
-│   └── almaty_zenkova/                 # t01.wav..t10.wav + routes.json (OSRM) + transcripts.txt
+│   ├── astana_expo/                    # a01.wav..a08.wav + routes.json + transcripts.txt
+│   └── almaty_zenkova/                 # t01.wav..t10.wav + routes.json + transcripts.txt
 ├── docs/
-│   ├── ARCHITECTURE.md                 # Подробная архитектура пайплайна
-│   └── RESPONSIBLE_AI_KZ_230.md        # Паспорт соответствия Закону РК № 230-VIII «Об ИИ»
+│   ├── QYRAN_ITFEST2026_Pitch.pdf      # Презентация PDF (16:9)
+│   ├── ARCHITECTURE.md                 # Описание архитектуры и API
+│   ├── RESPONSIBLE_AI_KZ_230.md        # Соответствие Закону РК № 230-VIII
+│   └── FINALIST_PITCH_SCRIPT.md        # План выступления и ответы на вопросы жюри
 └── tests/
-    └── test_qyran_mvp.py               # Автотесты DSP, NLP, ПДн, SHA-256 tamper check и API
+    └── test_qyran_mvp.py               # Набор модульных и интеграционных тестов
 ```
 
 ## Команда
 
-- **Yeraly Abutalifuly** — ML Engineer · Backend · Project Lead
-- **Adelia** — ML Engineer · Backend · Data Visualization
+- **Ералы Абуталифулы** (ML Engineer, Backend, Project Lead)
+- **Аделия** (ML Engineer, Backend, Data Visualization)
 
 ## Лицензия
 

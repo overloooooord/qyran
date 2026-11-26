@@ -475,7 +475,7 @@ details.xai-det ul { margin: 4px 0 2px 15px; }
 }
 .maplibregl-popup-tip { border-top-color: var(--p1) !important; }
 
-/* Right Panel Tabs — single clean row */
+/* Right Panel Tabs: single clean row */
 .tabs {
   display: grid;
   grid-template-columns: repeat(6, 1fr);

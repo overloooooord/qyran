@@ -555,7 +555,7 @@ def extract_operational_intelligence(
     if sensor_status == "ok":
         xai_factors.append(f"Кросс-проверка датчиков: ✔ подтверждено ({sensor_label})")
     elif sensor_status == "unverified":
-        xai_factors.append("Кросс-проверка датчиков: ⚠ датчик не подтвердил (только голосовой доклад — перепроверить)")
+        xai_factors.append("Кросс-проверка датчиков: ⚠ датчик не подтвердил (только голосовой доклад, требуется перепроверка)")
     if snr_db is not None:
         xai_factors.append(f"Качество радиоканала: SNR {snr_db:.1f} дБ · ASR conf {int(asr_confidence * 100)}%")
 
@@ -652,7 +652,7 @@ def _build_recommendation(
         if kind == "armed":
             return (
                 f"Оцепление 300 м вокруг {loc_label}; направить Арлан-3 на блокировку выходов, Барыс-1 на эвакуацию 1 этажа",
-                f"{loc_label} айналасында 300 м қоршау; Арлан-3 тобын жіберу, Барыс-1 — 1-қабатты эвакуациялау",
+                f"{loc_label} айналасында 300 м қоршау; Арлан-3 тобын жіберу, Барыс-1: 1-қабатты эвакуациялау",
                 "Арлан-3",
             )
         if kind == "crowd":

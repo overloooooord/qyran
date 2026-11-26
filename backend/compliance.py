@@ -89,7 +89,7 @@ def build_dual_marking(
         "artifact_type": artifact_type,
         "kz_ai_law": {
             "statute": "Закон РК № 230-VIII «Об искусственном интеллекте» (вступил в силу 18.01.2026)",
-            "articles": ["ст. 17–19 (Высокий риск)", "ст. 21 (Двойная маркировка)"],
+            "articles": ["ст. 17-19 (Высокий риск)", "ст. 21 (Двойная маркировка)"],
             "risk_tier": KZ_AI_LAW_PROFILE["risk_tier"],
             "ai_assisted": ai_assisted,
             "is_synthetic_media": False,
@@ -127,7 +127,7 @@ def evaluate_compliance_checklist(
     checks = [
         {
             "id": "risk_classification",
-            "article": "ст. 17–19 Закона РК № 230-VIII",
+            "article": "ст. 17-19 Закона РК № 230-VIII",
             "title_ru": "Классификация риска: Высокий риск (ЧС и критическая инфраструктура)",
             "title_kk": "Тәуекел жіктемесі: Жоғары тәуекел (ТЖ және сыни инфрақұрылым)",
             "status": "PASS",
@@ -151,7 +151,7 @@ def evaluate_compliance_checklist(
         },
         {
             "id": "audit_chain",
-            "article": "ст. 18–19 (Прослеживаемость и журнал аудита)",
+            "article": "ст. 18-19 (Прослеживаемость и журнал аудита)",
             "title_ru": "Криптографически неизменяемый журнал (SHA-256 Hash Chain)",
             "title_kk": "Криптографиялық өзгермейтін аудит журналы (SHA-256)",
             "status": "PASS" if chain_valid else "FAIL",

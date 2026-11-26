@@ -224,7 +224,7 @@ def export_markdown_report(
     lines.extend(["", "## 4. Задачи подразделениям"])
     if tasks:
         for k in tasks:
-            lines.append(f"- `{k['id']}` **{k['unit']}**: {k['text']} — статус `{k['status']}`")
+            lines.append(f"- `{k['id']}` **{k['unit']}**: {k['text']}, статус `{k['status']}`")
     else:
         lines.append("- Задач не создано.")
 
@@ -317,7 +317,7 @@ def export_printable_html_report(
     </div>
     <div class="seal">
       <b>🤖 МАРКИРОВКА ИИ (ст. 21 Закона РК № 230-VIII)</b><br>
-      Система высокого риска (ст. 17–19). Решения утверждаются оператором (HITL). Облачных вызовов ИИ: <b>0</b>.
+      Система высокого риска (ст. 17-19). Решения утверждаются оператором (HITL). Облачных вызовов ИИ: <b>0</b>.
     </div>
   </div>
 

@@ -86,7 +86,7 @@ def _safe_preload() -> None:
 
 
 app = FastAPI(
-    title="QYRAN 2.0 — Voice-to-3D Operational AI (IT FEST 2026)",
+    title="QYRAN 2.0: Voice-to-3D Operational AI (IT FEST 2026)",
     version=__version__,
     lifespan=lifespan,
 )

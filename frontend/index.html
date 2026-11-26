@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>QYRAN 2.0 — Голос → 3D Оперативная Карта · IT FEST 2026</title>
+  <title>QYRAN 2.0: Голос -> 3D Оперативная Карта · IT FEST 2026</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
   <link href="/static/vendor/maplibre-gl.css" rel="stylesheet">
@@ -87,8 +87,8 @@
             <option value="kk">🇰🇿 Қазақша (kk)</option>
             <option value="ru">🇷🇺 Русский (ru)</option>
           </select>
-          <label title="Пропустить микрофон/файл через полосовой фильтр рации 300–3400 Гц + шум">
-            <input type="checkbox" id="chkRadioDegrade"> 📻 Радио 300–3400 Гц
+          <label title="Пропустить микрофон/файл через полосовой фильтр рации 300-3400 Гц + шум">
+            <input type="checkbox" id="chkRadioDegrade"> 📻 Радио 300-3400 Гц
           </label>
           <label title="Озвучивать голосом критические события P1">
             <input type="checkbox" id="chkTts"> 🗣 Озвучка
@@ -171,13 +171,13 @@
           <div id="copilotOut" style="display:none;margin-top:7px;padding:7px 9px;background:var(--bg);border:1px solid var(--ln);border-radius:7px;font-size:11.5px;line-height:1.45"></div>
         </div>
 
-        <div class="sec-title"><span>⚖️ Очередь решений HITL (Enter — утвердить)</span><span class="mono" id="hitlCntLbl">0</span></div>
+        <div class="sec-title"><span>⚖️ Очередь решений HITL (Enter: утвердить)</span><span class="mono" id="hitlCntLbl">0</span></div>
         <div id="hitlQueue"></div>
 
         <div class="sec-title"><span>📋 Задачи и контроль молчания</span><span class="mono" id="taskCntLbl">0</span></div>
         <div id="taskList"></div>
 
-        <div class="sec-title"><span>🚒 Подразделения (клик — перелёт)</span><span class="mono" id="unitCntLbl">0</span></div>
+        <div class="sec-title"><span>🚒 Подразделения (клик: перелёт)</span><span class="mono" id="unitCntLbl">0</span></div>
         <div id="unitList"></div>
       </div>
 
@@ -191,7 +191,7 @@
         </div>
         <div class="card">
           <div class="cmeta" style="color:#cbd5e1;margin-bottom:7px">
-            Загрузите любое фото/кадр с камеры или дрона — локальный анализатор (`PIL + NumPy`, 0 cloud) проверит тепловые/дымовые аномалии и перекрёстно подтвердит голосовой инцидент в SHA-256 журнале.
+            Загрузите любое фото/кадр с камеры или дрона: локальный анализатор (PIL + NumPy, 0 cloud) проверит тепловые/дымовые аномалии и перекрёстно подтвердит голосовой инцидент в SHA-256 журнале.
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="blue sm" id="btnUploadImg">📷 Загрузить кадр (.jpg/.png)</button>
@@ -204,7 +204,7 @@
 
       <!-- Tab 3: Interactive 3D Multi-Floor Building -->
       <div class="pane" id="p-b3d">
-        <div class="sec-title"><span id="b3dTitle">МВЦ EXPO · Павильон C2</span><span class="sub">мышью — вращать</span></div>
+        <div class="sec-title"><span id="b3dTitle">МВЦ EXPO · Павильон C2</span><span class="sub">вращение мышью</span></div>
         <div class="floor-pills" id="floorPills"></div>
         <canvas id="b3d" width="720" height="500"></canvas>
         <div style="display:flex;gap:6px;margin-top:7px">
@@ -228,7 +228,7 @@
 
         <div class="toggle-box">
           <label>
-            <span><b>Строгий HITL (ст. 19)</b> — запрет авто-действий P1/P2</span>
+            <span><b>Строгий HITL (ст. 19)</b>: запрет авто-действий P1/P2</span>
             <input type="checkbox" id="chkStrictHitl" checked>
           </label>
           <label>
@@ -274,7 +274,7 @@
         </div>
         <div id="benchContent">
           <div class="note">
-            Нажмите <b>«▶ Запустить»</b> — QYRAN вживую прогонит все реальные радиозаписи активного сценария через локальный <code>whisper-large-v3-turbo</code> + ремонт QYRAN и покажет точное снижение <b>WER / CER</b>, латентность (<b>ms</b>) и перехваченные галлюцинации.
+            Нажмите <b>«▶ Запустить»</b>, чтобы QYRAN прогнал все реальные радиозаписи активного сценария через локальный <code>whisper-large-v3-turbo</code> + ремонт QYRAN и покажет точное снижение <b>WER / CER</b>, латентность (<b>ms</b>) и перехваченные галлюцинации.
           </div>
         </div>
       </div>
@@ -371,15 +371,15 @@
       <div class="hk-item"><span>🎙 Начать / остановить запись микрофона</span><span class="kbd">Space</span></div>
       <div class="hk-item"><span>✔ Утвердить активное HITL-решение</span><span class="kbd">Enter</span></div>
       <div class="hk-item"><span>📺 Режим проектора XL (для сцены)</span><span class="kbd">P</span></div>
-      <div class="hk-item"><span>📑 Переключение вкладок справа</span><span class="kbd">1 – 6</span></div>
+      <div class="hk-item"><span>📑 Переключение вкладок справа</span><span class="kbd">1-6</span></div>
       <div class="hk-item"><span>📍 Клик по любой точке 3D-карты</span><span class="kbd">Click</span></div>
       <div class="hk-item"><span>🎯 Интерактивный питч-дек IT FEST 2026</span><span class="kbd">/pitch</span></div>
     </div>
     <div class="note" style="font-size:12px;color:#e2e8f0">
       <b>Сценарий живой защиты за 2 минуты:</b><br>
-      1. Нажмите <b>«▶ Живой эфир (GPU)»</b> — слушайте реальный казахско-русский радиоэфир EXPO Астана и смотрите живые исправления Whisper.<br>
-      2. Нажмите <b>Enter</b> (или <b>✔ Утвердить</b>) на карточке HITL — расчёт поедет по реальным улицам Астаны (OSRM) с записью в SHA-256 журнал.<br>
-      3. Нажмите <b>Space</b> и скажите вживую: <i>«Пожар возле Байтерека!»</i> — QYRAN мгновенно поставит метку, выберет ближайший расчёт и посчитает OSRM ETA.<br>
+      1. Нажмите <b>«▶ Живой эфир (GPU)»</b>: слушайте реальный казахско-русский радиоэфир EXPO Астана и смотрите живые исправления Whisper.<br>
+      2. Нажмите <b>Enter</b> (или <b>✔ Утвердить</b>) на карточке HITL: расчёт поедет по реальным улицам Астаны (OSRM) с записью в SHA-256 журнал.<br>
+      3. Нажмите <b>Space</b> и скажите вживую: <i>«Пожар возле Байтерека!»</i>: QYRAN мгновенно поставит метку, выберет ближайший расчёт и посчитает OSRM ETA.<br>
       4. Откройте <b>«⚖️ Закон» → «⚡ Тест взлома»</b> и <b>«🧪 AI WER» → «▶ Запустить»</b> для живого доказательства обоим жюри (Human + AI).
     </div>
   </div>

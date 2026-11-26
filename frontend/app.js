@@ -1,4 +1,4 @@
-/* QYRAN 2.0+ — Real-Time Voice-to-3D Command Console (IT FEST 2026) */
+/* QYRAN 2.0+: Real-Time Voice-to-3D Command Console (IT FEST 2026) */
 (() => {
   'use strict';
 
@@ -538,7 +538,7 @@
           t.sensor_status === 'ok'
             ? `<span class="tag ok">✔ ${esc(t.sensor_label)}</span>`
             : t.sensor_status === 'unverified'
-            ? `<span class="tag unc">⚠ Только голос — перепроверить</span>`
+            ? `<span class="tag unc">⚠ Только голос: перепроверить</span>`
             : `<span class="tag k">🎙 Команда</span>`;
         const hallTag = t.hallucination_recovered
           ? `<span class="tag ai" title="${esc(t.rescore_note || '')}">🛡 Анти-галлюцинация</span>`
@@ -574,7 +574,7 @@
           ${
             xaiList
               ? `<details class="xai-det" onclick="event.stopPropagation()">
-                   <summary>🔍 XAI объяснение (${t.repaired_count || 0} испр. · SNR ${t.snr_db ?? '—'} дБ)</summary>
+                   <summary>🔍 XAI объяснение (${t.repaired_count || 0} испр. · SNR ${t.snr_db ?? '-'} дБ)</summary>
                    <ul>${xaiList}</ul>
                  </details>`
               : ''
@@ -616,7 +616,7 @@
         ${pending.length > 1 ? `<span class="tag">+${pending.length - 1} ещё</span>` : ''}
       </div>
       <div class="hl-law">
-        <b>Закон РК № 230-VIII (ст. 19):</b> Система высокого риска — автоисполнение заблокировано. Оператор: <code>${esc(state.operator_name)}</code>.
+        <b>Закон РК № 230-VIII (ст. 19):</b> Система высокого риска, автоисполнение заблокировано. Оператор: <code>${esc(state.operator_name)}</code>.
       </div>
       <div class="hl-actions">
         <button class="grn" onclick="window.__decide('${r.id}','APPROVED')">✔ Утвердить [Enter]</button>
@@ -1299,7 +1299,7 @@
       mediaRecorder.start();
       isRecording = true;
       btn.classList.add('rec');
-      btn.textContent = '🔴 ЗАПИСЬ — [Space] отправить';
+      btn.textContent = '🔴 Идет запись ([Space] отправить)';
       $('#airState').className = 'air-status live';
       $('#airState').textContent = '● ЗАПИСЬ МИКРОФОНА';
 
@@ -1341,7 +1341,7 @@
     if (res.transmission) {
       if (res.transmission.waveform && res.transmission.waveform.length) drawWaveform(res.transmission.waveform, '#22c55e');
       $('#airTelemetry').textContent = `${res.transmission.asr_latency_ms}ms · SNR ${res.transmission.snr_db}dB`;
-      $('#nowTxt').textContent = `${res.transmission.summary_ru} — «${res.transmission.repaired_text}»`;
+      $('#nowTxt').textContent = `${res.transmission.summary_ru}: «${res.transmission.repaired_text}»`;
       playTone(res.transmission.priority <= 2 ? 'alert' : 'ok');
       if (res.transmission.coords) flyTo(res.transmission.coords, 15.0);
     }
@@ -1511,7 +1511,7 @@
           Хеш в БД: ${esc((t.stored_hash || '').slice(0, 32))}…<br>
           Пересчёт: ${esc((t.recomputed_hash || '').slice(0, 32))}…
         </div>
-        <div class="cmeta" style="color:#4ade80;margin-top:4px">✔ Тест выполнен в изолированной копии — рабочая SQLite-цепь не повреждена.</div>
+        <div class="cmeta" style="color:#4ade80;margin-top:4px">✔ Тест выполнен в изолированной копии: рабочая SQLite-цепь не повреждена.</div>
       </div>`;
   }
 
