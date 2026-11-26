@@ -15,6 +15,8 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import torch
+
 from . import __version__
 from .asr_engine import LocalWhisperEngine
 from .audio_dsp import analyze_audio, apply_radio_degradation, decode_to_16k_mono, load_wav_16k
@@ -24,8 +26,10 @@ from .compliance import redact_pii
 from .config import ASSETS_DIR, DATA_DIR, FRONTEND_DIR, SCENARIOS_DIR
 from .copilot import answer_commander_question
 from .exporters import export_cot_xml, export_geojson, export_markdown_report, export_printable_html_report
+from .nli_engine import LocalNLIClassifier
 from .nlp_engine import check_local_llm_available, extract_operational_intelligence
 from .state import OperationalState
+from .tts_engine import TTS_DIR, TTSEngine
 from .vision_engine import analyze_frame_bytes
 
 UPLOADS_DIR = DATA_DIR / "uploads"
@@ -36,6 +40,8 @@ logger = logging.getLogger("qyran.api")
 
 db = AuditDatabase()
 asr_engine = LocalWhisperEngine()
+nli_engine = LocalNLIClassifier()
+tts_engine = TTSEngine()
 ops_state = OperationalState(db)
 
 
@@ -83,6 +89,10 @@ def _safe_preload() -> None:
         asr_engine.ensure_loaded()
     except Exception as exc:
         logger.warning("Whisper preload deferred/failed: %s", exc)
+    try:
+        nli_engine.ensure_loaded()
+    except Exception as exc:
+        logger.warning("mDeBERTa NLI preload deferred/failed: %s", exc)
 
 
 app = FastAPI(
@@ -146,20 +156,147 @@ class CopilotReq(BaseModel):
     lang: str = "ru"
 
 
+class TTSReq(BaseModel):
+    text: str
+    voice_key: str = "auto"
+    radio_effect: bool = False
+
+
+class ClassifyReq(BaseModel):
+    text: str
+
+
 # =============================================================================
 # Health, Scenarios & State Endpoints
 # =============================================================================
+def _gpu_telemetry() -> dict[str, Any]:
+    if not torch.cuda.is_available():
+        return {"cuda": False, "gpu_name": None, "vram_used_mb": 0, "vram_total_mb": 0, "vram_pct": 0}
+    used = int(round(torch.cuda.memory_allocated(0) / (1024 * 1024)))
+    total = int(round(torch.cuda.get_device_properties(0).total_memory / (1024 * 1024)))
+    return {
+        "cuda": True,
+        "gpu_name": torch.cuda.get_device_name(0),
+        "vram_used_mb": used,
+        "vram_total_mb": total,
+        "vram_pct": round(used * 100.0 / max(1, total), 1),
+    }
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "version": __version__,
         "contour": "100% On-Premise / Zero Cloud Egress",
+        "gpu": _gpu_telemetry(),
         "asr": asr_engine.status(),
+        "nli": nli_engine.status(),
+        "tts": tts_engine.status(),
         "local_llm": check_local_llm_available(),
         "active_scenario": ops_state.scenario_id,
         "audit_chain": db.verify_chain(),
     }
+
+
+@app.get("/api/ai/telemetry")
+def ai_telemetry() -> dict[str, Any]:
+    """Live telemetry of all on-premise AI models (GPU VRAM, Whisper, mDeBERTa-v3, TTS, Local LLM)."""
+    return {
+        "gpu": _gpu_telemetry(),
+        "asr": asr_engine.status(),
+        "nli": nli_engine.status(),
+        "tts": tts_engine.status(),
+        "local_llm": check_local_llm_available(),
+    }
+
+
+@app.post("/api/ai/classify")
+async def ai_classify_text(req: ClassifyReq) -> dict[str, Any]:
+    """Run live local mDeBERTa-v3-xnli zero-shot neural classification on arbitrary KK/RU text."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, nli_engine.classify, req.text)
+
+
+@app.post("/api/tts/speak")
+async def tts_speak(req: TTSReq) -> dict[str, Any]:
+    """Synthesize genuine Kazakh/Russian spoken WAV via Neural TTS (edge-tts + espeak-ng fallback)."""
+    loop = asyncio.get_running_loop()
+    try:
+        res = await loop.run_in_executor(
+            None,
+            lambda: tts_engine.synthesize(req.text, voice_key=req.voice_key, radio_effect=req.radio_effect),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("TTS synthesis failed")
+        raise HTTPException(status_code=500, detail=f"Ошибка синтеза речи: {exc}") from exc
+
+    db.append_audit(
+        ops_state.session_id,
+        ops_state.sim_time,
+        ops_state.operator_name,
+        "TTS_BROADCAST",
+        f"Голосовая передача TTS ({res['voice_label']}, радио={res['radio_effect']}): {req.text[:80]}",
+        {"audio_url": res["audio_url"], "backend": res["backend"], "duration_sec": res["duration_sec"]},
+    )
+    return {**res, "state": ops_state.snapshot()}
+
+
+@app.get("/api/tts/file/{filename}")
+def get_tts_audio(filename: str) -> FileResponse:
+    safe = Path(filename).name
+    path = TTS_DIR / safe
+    if not path.exists() or path.suffix.lower() != ".wav":
+        raise HTTPException(status_code=404, detail="TTS audio file not found")
+    return FileResponse(path, media_type="audio/wav")
+
+
+@app.post("/api/tts/roundtrip")
+async def tts_to_whisper_roundtrip(req: TTSReq) -> dict[str, Any]:
+    """Full end-to-end live loop: Text -> Neural TTS WAV -> Radio 300-3400Hz -> Whisper GPU -> mDeBERTa -> 3D Map."""
+    loop = asyncio.get_running_loop()
+
+    def _run_loop() -> dict[str, Any]:
+        tts_res = tts_engine.synthesize(req.text, voice_key=req.voice_key, radio_effect=req.radio_effect)
+        sr, samples = load_wav_16k(Path(tts_res["path"]))
+        dsp = analyze_audio(samples, sr=sr, radio_filtered=req.radio_effect)
+        asr = asr_engine.transcribe(samples, sample_rate=sr, language="auto")
+        nli = nli_engine.classify(asr.raw_text)
+        nlp = extract_operational_intelligence(
+            asr.raw_text,
+            asr.detected_lang,
+            ops_state.scenario,
+            asr_confidence=asr.confidence,
+            snr_db=dsp.snr_db,
+            hint_from="TTS Радиоэфир",
+            nli_result=nli,
+        )
+        ing = ops_state.ingest_processed_message(
+            nlp=nlp,
+            source="tts_radio_roundtrip",
+            asr_latency_ms=asr.latency_ms,
+            asr_confidence=asr.confidence,
+            asr_rtf=asr.rtf,
+            asr_model_id=asr.model_id,
+            hallucination_recovered=asr.hallucination_recovered,
+            rescore_note=asr.rescore_note,
+            snr_db=dsp.snr_db,
+            duration_sec=dsp.duration_sec,
+            waveform=dsp.waveform,
+            audio_url=tts_res["audio_url"],
+        )
+        return {"tts": tts_res, **ing}
+
+    try:
+        result = await loop.run_in_executor(None, _run_loop)
+    except Exception as exc:
+        logger.exception("TTS roundtrip failed")
+        raise HTTPException(status_code=500, detail=f"Ошибка цикла TTS->Whisper: {exc}") from exc
+
+    await ws_manager.broadcast("transmission", result)
+    return result
 
 
 @app.get("/api/scenarios")
@@ -227,6 +364,7 @@ async def ingest_audio(
 
         dsp = analyze_audio(samples, sr=sr, radio_filtered=radio_degrade)
         asr = asr_engine.transcribe(samples, sample_rate=sr, language=lang)
+        nli_res = nli_engine.classify(asr.raw_text) if (nli_engine.loaded or os.getenv("QYRAN_SKIP_PRELOAD") != "1") else None
         nlp = extract_operational_intelligence(
             asr.raw_text,
             asr.detected_lang,
@@ -234,6 +372,7 @@ async def ingest_audio(
             asr_confidence=asr.confidence,
             snr_db=dsp.snr_db,
             hint_from=from_callsign or "Микрофон / PTT",
+            nli_result=nli_res,
         )
         return ops_state.ingest_processed_message(
             nlp=nlp,
@@ -271,6 +410,12 @@ async def ingest_text(req: TextIngestReq) -> dict[str, Any]:
         has_kk = any(ch in txt.lower() for ch in "әіңғүұқөһ")
         detected = "kk" if has_kk else "ru"
 
+    loop = asyncio.get_running_loop()
+    nli_res = (
+        await loop.run_in_executor(None, nli_engine.classify, txt)
+        if (nli_engine.loaded or os.getenv("QYRAN_SKIP_PRELOAD") != "1")
+        else None
+    )
     nlp = extract_operational_intelligence(
         txt,
         detected,
@@ -278,6 +423,7 @@ async def ingest_text(req: TextIngestReq) -> dict[str, Any]:
         asr_confidence=0.98,
         hint_from=req.from_callsign or "Текстовый пульт",
         hint_to=req.to_callsign,
+        nli_result=nli_res,
     )
     result = ops_state.ingest_processed_message(
         nlp=nlp,
@@ -312,6 +458,7 @@ async def run_scenario_clip(
         sr, samples = load_wav_16k(wav_path)
         dsp = analyze_audio(samples, sr=sr, radio_filtered=True)
         asr = asr_engine.transcribe(samples, sample_rate=sr, language=lang_mode)
+        nli_res = nli_engine.classify(asr.raw_text) if (nli_engine.loaded or os.getenv("QYRAN_SKIP_PRELOAD") != "1") else None
         nlp = extract_operational_intelligence(
             asr.raw_text,
             asr.detected_lang,
@@ -321,6 +468,7 @@ async def run_scenario_clip(
             hint_from=clip.get("from"),
             hint_to=clip.get("to"),
             clip_id=clip_id,
+            nli_result=nli_res,
         )
         return ops_state.ingest_processed_message(
             nlp=nlp,

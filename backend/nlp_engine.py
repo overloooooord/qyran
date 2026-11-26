@@ -361,6 +361,7 @@ def extract_operational_intelligence(
     hint_from: str | None = None,
     hint_to: str | None = None,
     clip_id: str | None = None,
+    nli_result: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Full QYRAN NLP pipeline: repair -> diff -> NER -> geolocation -> sensor fusion -> XAI."""
     repaired, diffs, repair_engine = repair_radio_text(raw_asr, detected_lang, scenario)
@@ -394,6 +395,13 @@ def extract_operational_intelligence(
         kind = "evacuated"
     elif any(k in norm_s for k in ("жиналды", "скоплени", "толпа", "посетителей", "митинг", "полиция көмегі")):
         kind = "crowd"
+
+    # Neural zero-shot NLI override for free-form Kazakh/Russian phrases without explicit keywords
+    nli_used_override = False
+    if kind == "other" and nli_result and nli_result.get("available"):
+        if float(nli_result.get("top_entailment", 0.0)) >= 0.72:
+            kind = nli_result["top_kind"]
+            nli_used_override = True
 
     # 2. Extract spatial entities (landmark + square + target)
     grid = scenario["grid"]
@@ -558,6 +566,12 @@ def extract_operational_intelligence(
         xai_factors.append("Кросс-проверка датчиков: ⚠ датчик не подтвердил (только голосовой доклад, требуется перепроверка)")
     if snr_db is not None:
         xai_factors.append(f"Качество радиоканала: SNR {snr_db:.1f} дБ · ASR conf {int(asr_confidence * 100)}%")
+    if nli_result and nli_result.get("available"):
+        mode_lbl = "нейросеть определила класс напрямую" if nli_used_override else "подтверждение нейросетью"
+        xai_factors.append(
+            f"mDeBERTa-v3 NLI ({nli_result['latency_ms']} ms, {mode_lbl}): "
+            f"{nli_result['top_label_ru']} ({int(nli_result['top_entailment'] * 100)}%)"
+        )
 
     # Clean translation/summary fallback
     translation_ru = repaired if detected_lang == "ru" else _quick_kk_to_ru_summary(repaired, summary_ru, from_cs, to_cs, kind)
@@ -602,6 +616,7 @@ def extract_operational_intelligence(
         "confidence": overall_conf,
         "needs_recheck": needs_recheck,
         "xai_factors": xai_factors,
+        "nli": nli_result,
     }
 
 

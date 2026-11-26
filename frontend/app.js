@@ -57,12 +57,12 @@
       m_own: 'Службы',
       m_over: 'Обзор',
       now_lbl: 'ОБСТАНОВКА',
-      tab_ops: '🚒 Силы',
-      tab_cams: '📷 CV',
-      tab_b3d: '🧊 3D',
-      tab_law: '⚖️ Закон',
-      tab_bench: '🧪 WER',
-      tab_roi: '📊 ROI',
+      tab_ops: 'Силы',
+      tab_ai: 'ИИ / TTS',
+      tab_cams: 'CV / 3D',
+      tab_law: 'Закон',
+      tab_bench: 'WER',
+      tab_roi: 'ROI',
       foot_audit: '🔐 Криптографический аудит (SQLite · SHA-256 Hash Chain)',
       foot_brief: '📊 Автосводка смены (AI-Assisted · ст. 21)',
     },
@@ -82,12 +82,12 @@
       m_own: 'Қызметтер',
       m_over: 'Шолу',
       now_lbl: 'ЖАҒДАЙ',
-      tab_ops: '🚒 Күштер',
-      tab_cams: '📷 CV',
-      tab_b3d: '🧊 3D',
-      tab_law: '⚖️ Заң',
-      tab_bench: '🧪 WER',
-      tab_roi: '📊 ROI',
+      tab_ops: 'Күштер',
+      tab_ai: 'ЖИ / TTS',
+      tab_cams: 'CV / 3D',
+      tab_law: 'Заң',
+      tab_bench: 'WER',
+      tab_roi: 'ROI',
       foot_audit: '🔐 Криптографиялық аудит (SQLite · SHA-256)',
       foot_brief: '📊 Ауысым автосводкасы (AI-Assisted · 21-бап)',
     },
@@ -126,14 +126,18 @@
     } catch {}
   }
 
-  function speakNotice(text) {
-    if (!$('#chkTts') || !$('#chkTts').checked || !window.speechSynthesis) return;
+  async function speakNotice(text) {
+    if (!$('#chkTts') || !$('#chkTts').checked || !text) return;
     try {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = uiLang === 'kk' ? 'kk-KZ' : 'ru-RU';
-      u.rate = 1.08;
-      window.speechSynthesis.speak(u);
+      const resp = await fetch('/api/tts/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice_key: uiLang === 'kk' ? 'kk_male' : 'ru_male', radio_effect: false }),
+      });
+      if (resp.ok) {
+        const res = await resp.json();
+        window.__playUrl(res.audio_url);
+      }
     } catch {}
   }
 
@@ -476,6 +480,7 @@
     renderFeed();
     renderHitlOverlay();
     renderOpsTab();
+    renderLatestNliFromState();
     renderVisionResults();
     renderLawTab();
     renderRoiAndDispatchTab();
@@ -1483,16 +1488,268 @@
     if (resp.ok) {
       const res = await resp.json();
       const cites = (res.citations || []).map((c) => `<span class="tag k">${esc(c)}</span>`).join(' ');
+      const speakSafe = esc(res.headline + '. ' + (res.bullets || []).slice(0, 2).join('. '));
       out.innerHTML = `
-        <div style="font-weight:700;color:#fff;margin-bottom:4px">🤖 ${esc(res.headline)}</div>
+        <div style="font-weight:700;color:#fff;margin-bottom:4px">${esc(res.headline)}</div>
         <ul style="margin-left:15px;color:#cbd5e1">${(res.bullets || []).map((b) => `<li>${esc(b)}</li>`).join('')}</ul>
         <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
           ${cites}
-          <span class="tag ai" style="margin-left:auto">ст. 21 · Grounded</span>
+          <button class="sm blue" style="margin-left:auto" onclick="window.__speakTtsText('${speakSafe}')">Озвучить (TTS)</button>
+          <span class="tag ai">${esc(res.engine || 'Grounded')}</span>
         </div>`;
       // refresh audit log
       const stR = await fetch('/api/state');
       if (stR.ok) { state = await stR.json(); renderFooter(); }
+    }
+  }
+
+  // =========================================================================
+  // 8b. Real AI Control Panel (GPU VRAM, mDeBERTa-v3 NLI, Neural TTS, Live Webcam CV)
+  // =========================================================================
+  async function refreshAiTelemetry() {
+    const card = $('#aiTelemetryCard');
+    if (!card) return;
+    try {
+      const r = await fetch('/api/ai/telemetry');
+      if (!r.ok) return;
+      const d = await r.json();
+      const g = d.gpu || {};
+      const llmOk = d.local_llm && d.local_llm.available;
+      card.innerHTML = `
+        <div class="ctop">
+          <span>${esc(g.gpu_name || 'CPU Mode')}</span>
+          <span class="badge ${g.cuda ? 'b-pass' : 'b-warn'}">${g.cuda ? 'CUDA FP16' : 'CPU'}</span>
+        </div>
+        ${
+          g.cuda
+            ? `<div class="cmeta">VRAM: <b>${g.vram_used_mb} MB</b> / ${g.vram_total_mb} MB (${g.vram_pct}%)</div>
+               <div class="vram-bar"><div class="vram-fill" style="width:${Math.min(100, Math.max(4, g.vram_pct))}%"></div></div>`
+            : ''
+        }
+        <div class="ent" style="margin-top:6px">
+          <span class="tag ${d.asr.loaded ? 'ok' : 'unc'}">Whisper: ${d.asr.loaded ? 'READY (' + d.asr.load_time_sec + 's)' : 'loading'}</span>
+          <span class="tag ${d.nli.loaded ? 'ok' : 'unc'}">mDeBERTa-v3: ${d.nli.loaded ? 'READY (' + d.nli.last_latency_ms + 'ms)' : 'standby'}</span>
+          <span class="tag ok">TTS: ${d.tts.total_syntheses} synth</span>
+          <span class="tag ${llmOk ? 'ok' : 'k'}">Local LLM: ${llmOk ? esc(d.local_llm.model) : 'standby (localhost:1234)'}</span>
+        </div>
+      `;
+    } catch {}
+  }
+
+  function renderNliBars(nli) {
+    const box = $('#nliBars');
+    if (!box) return;
+    if (!nli || !nli.available || !nli.scores || !nli.scores.length) return;
+    box.innerHTML =
+      `<div class="cmeta" style="margin-bottom:5px;color:#cbd5e1">Модель: <code>${esc(nli.model_id)}</code> · <b>${nli.latency_ms} ms</b> (${esc(nli.device.toUpperCase())})</div>` +
+      nli.scores
+        .map((s, idx) => {
+          const pct = Math.round((s.entailment || 0) * 100);
+          return `
+          <div class="nli-row">
+            <span style="color:${idx === 0 ? '#fff' : 'var(--mu)'};font-weight:${idx === 0 ? 700 : 500}">${esc(s.label_ru)}</span>
+            <div class="nli-track"><div class="nli-fill ${idx === 0 ? 'top' : ''}" style="width:${Math.max(2, pct)}%"></div></div>
+            <b class="mono" style="text-align:right;color:${idx === 0 ? 'var(--grn)' : 'var(--mu)'}">${pct}%</b>
+          </div>`;
+        })
+        .join('');
+  }
+
+  function renderLatestNliFromState() {
+    if (!state || !state.transmissions || !state.transmissions.length) return;
+    for (let i = state.transmissions.length - 1; i >= 0; i--) {
+      if (state.transmissions[i].nli && state.transmissions[i].nli.available) {
+        renderNliBars(state.transmissions[i].nli);
+        break;
+      }
+    }
+  }
+
+  async function runLiveNliClassify(text) {
+    const clean = (text || '').trim();
+    if (!clean) return;
+    const btn = $('#btnRunNli');
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      const resp = await fetch('/api/ai/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: clean }),
+      });
+      if (resp.ok) {
+        const res = await resp.json();
+        renderNliBars(res);
+        refreshAiTelemetry();
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Оценить';
+    }
+  }
+
+  window.__speakTtsText = async (text, voiceKey = 'auto', radioEffect = false) => {
+    const resp = await fetch('/api/tts/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice_key: voiceKey, radio_effect: radioEffect }),
+    });
+    if (resp.ok) {
+      const res = await resp.json();
+      const player = $('#ttsPlayer');
+      if (player) {
+        player.src = res.audio_url;
+        player.style.display = 'block';
+        player.play().catch(() => {});
+      } else {
+        window.__playUrl(res.audio_url);
+      }
+      if ($('#ttsStatus')) {
+        $('#ttsStatus').innerHTML = `Синтезировано (${esc(res.backend)}): <b>${res.duration_sec} с</b> за <b>${res.latency_ms} ms</b>`;
+      }
+      if (res.state) { state = res.state; renderFooter(); }
+      refreshAiTelemetry();
+    }
+  };
+
+  async function runTtsSpeak() {
+    const txt = ($('#ttsText').value || '').trim();
+    if (!txt) return;
+    const btn = $('#btnTtsSpeak');
+    btn.disabled = true;
+    btn.textContent = 'Синтез...';
+    try {
+      await window.__speakTtsText(txt, $('#ttsVoiceSel').value, $('#chkTtsRadio').checked);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Озвучить (TTS)';
+    }
+  }
+
+  async function runTtsRoundtrip() {
+    const txt = ($('#ttsText').value || '').trim();
+    if (!txt) return;
+    const btn = $('#btnTtsRoundtrip');
+    btn.disabled = true;
+    btn.textContent = 'Цикл GPU...';
+    $('#ttsStatus').textContent = '1) Синтез TTS -> 2) Радиоканал -> 3) Whisper GPU -> 4) mDeBERTa -> 3D Карта...';
+    try {
+      const resp = await fetch('/api/tts/roundtrip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: txt,
+          voice_key: $('#ttsVoiceSel').value,
+          radio_effect: $('#chkTtsRadio').checked,
+        }),
+      });
+      if (resp.ok) {
+        const res = await resp.json();
+        state = res.state;
+        const player = $('#ttsPlayer');
+        player.src = res.tts.audio_url;
+        player.style.display = 'block';
+        player.play().catch(() => {});
+        $('#ttsStatus').innerHTML =
+          `Готово! TTS ${res.tts.latency_ms}ms -> Whisper ${res.transmission.asr_latency_ms}ms -> <b>${esc(res.transmission.kind_label_ru)}</b> (${esc(res.transmission.location_label)})`;
+        if (res.transmission.nli) renderNliBars(res.transmission.nli);
+        if (res.transmission.coords) flyTo(res.transmission.coords, 15.0);
+        playTone('alert');
+        renderAll();
+        refreshAiTelemetry();
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Цикл: TTS -> Whisper -> Карта';
+    }
+  }
+
+  // Real Live Webcam CV Loop (frame-diff motion + server PIL/NumPy fire/smoke detection)
+  let webcamStream = null;
+  let webcamTimer = null;
+  let prevGray = null;
+
+  async function toggleWebcamCV() {
+    const btn = $('#btnWebcam');
+    const wrap = $('#webcamWrap');
+    const video = $('#webcamVideo');
+    const ov = $('#webcamOverlay');
+    const info = $('#webcamTelemetry');
+
+    if (webcamStream) {
+      webcamStream.getTracks().forEach((t) => t.stop());
+      webcamStream = null;
+      clearInterval(webcamTimer);
+      webcamTimer = null;
+      prevGray = null;
+      wrap.style.display = 'none';
+      btn.textContent = 'Включить камеру';
+      btn.className = 'sm pri';
+      info.textContent = 'Веб-камера остановлена.';
+      return;
+    }
+
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 200 }, audio: false });
+      video.srcObject = webcamStream;
+      wrap.style.display = 'block';
+      btn.textContent = 'Остановить камеру';
+      btn.className = 'sm';
+      info.textContent = 'Камера активна: анализ огня, дыма и движения каждые 1.3 с...';
+
+      const cap = document.createElement('canvas');
+      cap.width = 320;
+      cap.height = 200;
+      const capCtx = cap.getContext('2d', { willReadFrequently: true });
+      const ovCtx = ov.getContext('2d');
+
+      let busy = false;
+      webcamTimer = setInterval(() => {
+        if (!webcamStream || busy || video.readyState < 2) return;
+        busy = true;
+        capCtx.drawImage(video, 0, 0, 320, 200);
+        // Real client-side frame-diff motion percentage
+        const frame = capCtx.getImageData(0, 0, 320, 200).data;
+        const gray = new Uint8Array(320 * 200);
+        let diffCnt = 0;
+        for (let i = 0, j = 0; i < frame.length; i += 4, j++) {
+          const g = (frame[i] * 77 + frame[i + 1] * 150 + frame[i + 2] * 29) >> 8;
+          gray[j] = g;
+          if (prevGray && Math.abs(g - prevGray[j]) > 26) diffCnt++;
+        }
+        prevGray = gray;
+        const motionPct = ((diffCnt / gray.length) * 100).toFixed(1);
+
+        cap.toBlob(async (blob) => {
+          try {
+            if (!blob) return;
+            const fd = new FormData();
+            fd.append('file', blob, 'webcam_live.jpg');
+            const r = await fetch('/api/ingest/image', { method: 'POST', body: fd });
+            if (!r.ok) return;
+            const res = await r.json();
+            const a = res.analysis;
+            ovCtx.clearRect(0, 0, 320, 200);
+            (a.detections || []).forEach((d) => {
+              const [nx, ny, nw, nh] = d.bbox_norm;
+              const x = nx * 320, y = ny * 200, w = nw * 320, h = nh * 200;
+              ovCtx.strokeStyle = d.cls === 'fire' ? '#ff3b30' : '#f59e0b';
+              ovCtx.lineWidth = 2.5;
+              ovCtx.strokeRect(x, y, w, h);
+              ovCtx.fillStyle = d.cls === 'fire' ? '#ff3b30' : '#f59e0b';
+              ovCtx.fillRect(x, Math.max(0, y - 16), 130, 16);
+              ovCtx.fillStyle = '#fff';
+              ovCtx.font = 'bold 10px JetBrains Mono, monospace';
+              ovCtx.fillText(`${d.cls.toUpperCase()} ${Math.round(d.confidence * 100)}%`, x + 4, Math.max(11, y - 4));
+            });
+            info.innerHTML = `Live CV: <b>${esc(a.verdict)}</b> · Огонь: <b>${a.fire_area_pct}%</b> · Дым: <b>${a.smoke_area_pct}%</b> · Движение: <b>${motionPct}%</b>`;
+          } finally {
+            busy = false;
+          }
+        }, 'image/jpeg', 0.8);
+      }, 1300);
+    } catch (err) {
+      info.textContent = 'Нет доступа к веб-камере: ' + err.message;
     }
   }
 
@@ -1603,10 +1860,19 @@
     $('#btnCloseHelp').onclick = () => $('#helpModal').classList.remove('open');
     $('#helpModal').onclick = (e) => { if (e.target === $('#helpModal')) $('#helpModal').classList.remove('open'); };
 
-    // Vision
+    // Vision & Live Webcam
+    $('#btnWebcam').onclick = toggleWebcamCV;
     $('#btnUploadImg').onclick = () => $('#imgFile').click();
     $('#imgFile').onchange = (e) => { const f = e.target.files[0]; if (f) uploadVisionImage(f, f.name); e.target.value = ''; };
     $('#btnTestFireImg').onclick = triggerSyntheticFireFrameTest;
+
+    // Real AI Control Panel (Telemetry, Neural TTS, mDeBERTa-v3 NLI)
+    $('#btnRefreshAi').onclick = refreshAiTelemetry;
+    $('#btnTtsSpeak').onclick = runTtsSpeak;
+    $('#btnTtsRoundtrip').onclick = runTtsRoundtrip;
+    $$('#ttsPresets .schip').forEach((el) => (el.onclick = () => { $('#ttsText').value = el.dataset.t; }));
+    $('#btnRunNli').onclick = () => runLiveNliClassify($('#nliInput').value);
+    $('#nliInput').onkeydown = (e) => { if (e.key === 'Enter') runLiveNliClassify($('#nliInput').value); };
 
     // 3D building send plan
     $('#btnSend3dPlan').onclick = async () => {
@@ -1705,7 +1971,7 @@
       } else if (e.key === 'Escape') {
         $('#helpModal').classList.remove('open');
       } else if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
-        const mapTabs = ['ops', 'cams', 'b3d', 'law', 'bench', 'roi'];
+        const mapTabs = ['ops', 'ai', 'cams', 'law', 'bench', 'roi'];
         switchTab(mapTabs[Number(e.key) - 1]);
       }
     });
@@ -1728,7 +1994,9 @@
 
     connectWS();
     pollHealth();
+    refreshAiTelemetry();
     setInterval(pollHealth, 5000);
+    setInterval(refreshAiTelemetry, 6000);
     setInterval(() => {
       if (state && (state.tasks || []).some((k) => k.status === 'new')) renderOpsTab();
     }, 1000);

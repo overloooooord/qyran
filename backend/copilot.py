@@ -8,7 +8,45 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
+
 from .compliance import build_dual_marking
+from .config import LOCAL_LLM_URL
+from .nlp_engine import check_local_llm_available
+
+
+def _try_local_llm_brief(question: str, context_text: str) -> tuple[str | None, str | None]:
+    """If a local LLM (LM Studio / Ollama on localhost) is running, use it grounded on live state."""
+    info = check_local_llm_available()
+    if not info.get("available"):
+        return None, None
+    try:
+        resp = httpx.post(
+            f"{LOCAL_LLM_URL.rstrip('/')}/chat/completions",
+            json={
+                "model": info["model"],
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Ты оперативный ИИ-ассистент ситуационного центра QYRAN. "
+                            "Отвечай кратко, фактами, ТОЛЬКО по предоставленным данным. Не выдумывай события."
+                        ),
+                    },
+                    {"role": "user", "content": f"Данные штаба:\n{context_text}\n\nВопрос: {question}"},
+                ],
+                "temperature": 0.1,
+                "max_tokens": 240,
+            },
+            timeout=6.0,
+        )
+        if resp.status_code == 200:
+            content = resp.json()["choices"][0]["message"]["content"].strip()
+            if content:
+                return content, info["model"]
+    except Exception:
+        pass
+    return None, None
 
 
 def answer_commander_question(question: str, snap: dict[str, Any], lang: str = "ru") -> dict[str, Any]:
@@ -133,12 +171,18 @@ def answer_commander_question(question: str, snap: dict[str, Any], lang: str = "
             bullets.append(f"⚠ Внимание: {len(unverified)} доклад(а) без подтверждения датчиков ({', '.join('#'+str(x['id']) for x in unverified)}).")
 
     answer_text = headline + "\n" + "\n".join(f"• {b}" for b in bullets)
+    llm_text, llm_model = _try_local_llm_brief(q, answer_text)
+    engine_used = f"Local-LLM ({llm_model}) + Grounded State" if llm_text else "QYRAN-Grounded-Commander-CoPilot-v2"
+    if llm_text:
+        bullets = [ln.lstrip("-• ").strip() for ln in llm_text.splitlines() if ln.strip()][:6]
+        answer_text = llm_text
+
     provenance = build_dual_marking(
         artifact_type="CommanderCopilotBrief",
         payload={"question": q, "headline": headline, "citations": citations},
         ai_assisted=True,
         human_verified=False,
-        nlp_engine="QYRAN-Grounded-Commander-CoPilot-v2",
+        nlp_engine=engine_used,
     )
     return {
         "question": q,
@@ -147,5 +191,6 @@ def answer_commander_question(question: str, snap: dict[str, Any], lang: str = "
         "answer_text": answer_text,
         "citations": citations,
         "grounded_only": True,
+        "engine": engine_used,
         "provenance": provenance,
     }

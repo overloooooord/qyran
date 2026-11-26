@@ -219,6 +219,23 @@ class TestQyranCore(unittest.TestCase):
             self.assertTrue(r_cop.json()["grounded_only"])
             self.assertIn("provenance", r_cop.json())
 
+            # Real AI Telemetry + Real TTS synthesis + WAV playback serving
+            r_tel = client.get("/api/ai/telemetry")
+            self.assertEqual(r_tel.status_code, 200)
+            self.assertIn("nli", r_tel.json())
+            self.assertIn("tts", r_tel.json())
+
+            r_tts = client.post(
+                "/api/tts/speak",
+                json={"text": "Внимание, тест радиосвязи.", "voice_key": "ru_male", "radio_effect": True},
+            )
+            self.assertEqual(r_tts.status_code, 200)
+            tts_url = r_tts.json()["audio_url"]
+            self.assertGreater(r_tts.json()["duration_sec"], 0.3)
+            r_wav = client.get(tts_url)
+            self.assertEqual(r_wav.status_code, 200)
+            self.assertGreater(len(r_wav.content), 2000)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -142,74 +142,124 @@
     </div>
   </section>
 
-  <!-- RIGHT: 6 MISSION-CRITICAL TABS (Hotkeys 1..6) -->
+  <!-- RIGHT: 6 MISSION-CRITICAL TABS (Hotkeys 1-6) -->
   <section class="col" id="right">
     <div class="tabs">
-      <button class="on" data-t="ops" data-i18n="tab_ops">🚒 Силы</button>
-      <button data-t="cams" data-i18n="tab_cams">📷 CV</button>
-      <button data-t="b3d" data-i18n="tab_b3d">🧊 3D</button>
-      <button data-t="law" data-i18n="tab_law">⚖️ Закон</button>
-      <button data-t="bench" data-i18n="tab_bench">🧪 WER</button>
-      <button data-t="roi" data-i18n="tab_roi">📊 ROI</button>
+      <button class="on" data-t="ops" data-i18n="tab_ops">Силы</button>
+      <button data-t="ai" data-i18n="tab_ai">ИИ / TTS</button>
+      <button data-t="cams" data-i18n="tab_cams">CV / 3D</button>
+      <button data-t="law" data-i18n="tab_law">Закон</button>
+      <button data-t="bench" data-i18n="tab_bench">WER</button>
+      <button data-t="roi" data-i18n="tab_roi">ROI</button>
     </div>
 
     <div class="scroll">
       <!-- Tab 1: Units, Tasks, Pending HITL & Grounded Commander AI Co-Pilot -->
       <div class="pane on" id="p-ops">
-        <div class="sec-title"><span>🤖 ИИ-Ассистент командира (Grounded · 0 галлюцинаций)</span></div>
+        <div class="sec-title"><span>ИИ-Ассистент штаба (Grounded)</span></div>
         <div class="card" style="border-left:3px solid var(--vio)">
           <div style="display:flex;gap:5px;margin-bottom:5px">
-            <input type="text" id="copilotInput" placeholder="Спросите штаб: сводка P1, силы, Закон №230-VIII…" style="flex:1;font-size:11px">
+            <input type="text" id="copilotInput" placeholder="Спросите штаб: сводка P1, силы, Закон 230-VIII..." style="flex:1;font-size:11px">
             <button class="sm blue" id="btnAskCopilot">Спросить</button>
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap" id="copilotQuick">
-            <span class="schip" data-q="Дай полную сводку P1 и очередь HITL">🔴 Сводка P1</span>
-            <span class="schip" data-q="Какие подразделения свободны?">🚒 Силы</span>
-            <span class="schip" data-q="Какие доклады не подтверждены датчиками?">⚠ Неподтверждённые</span>
-            <span class="schip" data-q="Проверь соответствие Закону РК № 230-VIII и SHA-256">⚖️ Закон №230</span>
+            <span class="schip" data-q="Дай полную сводку P1 и очередь HITL">Сводка P1</span>
+            <span class="schip" data-q="Какие подразделения свободны?">Силы</span>
+            <span class="schip" data-q="Какие доклады не подтверждены датчиками?">Неподтвержденные</span>
+            <span class="schip" data-q="Проверь соответствие Закону РК № 230-VIII и SHA-256">Закон 230</span>
           </div>
           <div id="copilotOut" style="display:none;margin-top:7px;padding:7px 9px;background:var(--bg);border:1px solid var(--ln);border-radius:7px;font-size:11.5px;line-height:1.45"></div>
         </div>
 
-        <div class="sec-title"><span>⚖️ Очередь решений HITL (Enter: утвердить)</span><span class="mono" id="hitlCntLbl">0</span></div>
+        <div class="sec-title"><span>Очередь решений HITL (Enter: утвердить)</span><span class="mono" id="hitlCntLbl">0</span></div>
         <div id="hitlQueue"></div>
 
-        <div class="sec-title"><span>📋 Задачи и контроль молчания</span><span class="mono" id="taskCntLbl">0</span></div>
+        <div class="sec-title"><span>Задачи и контроль молчания</span><span class="mono" id="taskCntLbl">0</span></div>
         <div id="taskList"></div>
 
-        <div class="sec-title"><span>🚒 Подразделения (клик: перелёт)</span><span class="mono" id="unitCntLbl">0</span></div>
+        <div class="sec-title"><span>Подразделения (клик: перелет)</span><span class="mono" id="unitCntLbl">0</span></div>
         <div id="unitList"></div>
       </div>
 
-      <!-- Tab 2: Live CCTV/Thermal Feeds + Real On-Premise Image Analyzer -->
-      <div class="pane" id="p-cams">
-        <div class="sec-title"><span>📷 Оперативные камеры и тепловизоры (sync)</span><span class="badge b-on">4 LIVE</span></div>
-        <div class="cams-grid" id="camsGrid"></div>
-
+      <!-- Tab 2: REAL AI CONTROL PANEL (GPU VRAM, mDeBERTa-v3 NLI, Neural TTS Studio) -->
+      <div class="pane" id="p-ai">
         <div class="sec-title">
-          <span>🔬 Живой Edge-Vision анализатор кадра (огонь / дым)</span>
+          <span>Живая телеметрия GPU и моделей (On-Premise)</span>
+          <button class="sm" id="btnRefreshAi">Обновить</button>
         </div>
+        <div class="card" id="aiTelemetryCard">
+          <div class="cmeta">Загрузка телеметрии GPU, Whisper, mDeBERTa-v3 и TTS...</div>
+        </div>
+
+        <div class="sec-title"><span>Студия Neural Text-to-Speech (Голос в рацию)</span></div>
+        <div class="card" style="border-left:3px solid var(--blue)">
+          <textarea id="ttsText" style="width:100%;min-height:52px;background:var(--bg);color:var(--tx);border:1px solid var(--ln2);border-radius:6px;padding:6px 8px;font:11.5px Inter,sans-serif;resize:vertical">Өрт-2, Орталықтан. Павильон С-2 екінші қабатын эвакуациялаңыз.</textarea>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0;align-items:center">
+            <select id="ttsVoiceSel" style="flex:1;font-size:11px">
+              <option value="auto">Авто голос (KK / RU)</option>
+              <option value="kk_male">Қазақша (Daulet, муж.)</option>
+              <option value="kk_female">Қазақша (Aigul, жен.)</option>
+              <option value="ru_male">Русский (Dmitry, муж.)</option>
+              <option value="ru_female">Русский (Svetlana, жен.)</option>
+            </select>
+            <label style="font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" id="chkTtsRadio" checked> Радио 300-3400 Гц
+            </label>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="blue sm" id="btnTtsSpeak" style="flex:1">Озвучить (TTS)</button>
+            <button class="grn sm" id="btnTtsRoundtrip" style="flex:1" title="Синтезировать речь -> наложить радиошум -> прогнать через Whisper GPU -> mDeBERTa -> 3D-карта">Цикл: TTS -> Whisper -> Карта</button>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px" id="ttsPresets">
+            <span class="schip" data-t="Внимание, пожар возле Байтерека, срочно направьте сто первую">RU: Пожар Байтерек</span>
+            <span class="schip" data-t="Орталық, жетінші шаршыда дрон байқадым, биіктігі 200 метр">KK: Дрон кв.7</span>
+            <span class="schip" data-t="В холле сильно пахнет гарью и видно пламя возле электрощита">RU: Свободная фраза</span>
+          </div>
+          <div id="ttsStatus" class="cmeta" style="margin-top:6px"></div>
+          <audio id="ttsPlayer" class="tts-audio" controls style="display:none"></audio>
+        </div>
+
+        <div class="sec-title"><span>Нейросеть mDeBERTa-v3-xnli (Zero-Shot NLI, GPU)</span></div>
         <div class="card">
-          <div class="cmeta" style="color:#cbd5e1;margin-bottom:7px">
-            Загрузите любое фото/кадр с камеры или дрона: локальный анализатор (PIL + NumPy, 0 cloud) проверит тепловые/дымовые аномалии и перекрёстно подтвердит голосовой инцидент в SHA-256 журнале.
+          <div style="display:flex;gap:5px;margin-bottom:6px">
+            <input type="text" id="nliInput" placeholder="Любая фраза kk/ru без ключевых слов..." style="flex:1;font-size:11px">
+            <button class="sm amb" id="btnRunNli">Оценить</button>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="blue sm" id="btnUploadImg">📷 Загрузить кадр (.jpg/.png)</button>
-            <button class="sm amb" id="btnTestFireImg">🔥 Тест-кадр очага</button>
-            <input type="file" id="imgFile" accept="image/*" style="display:none">
-          </div>
-          <div id="visionResult" style="margin-top:8px"></div>
+          <div class="sub" style="margin-bottom:6px">Реальное распределение вероятностей локальной нейросети по 7 классам ЧС:</div>
+          <div id="nliBars"><div class="sub">Отправьте сообщение или введите фразу выше.</div></div>
         </div>
       </div>
 
-      <!-- Tab 3: Interactive 3D Multi-Floor Building -->
-      <div class="pane" id="p-b3d">
-        <div class="sec-title"><span id="b3dTitle">МВЦ EXPO · Павильон C2</span><span class="sub">вращение мышью</span></div>
+      <!-- Tab 3: REAL Live Webcam CV + Image Analyzer + 3D Multi-Floor Building -->
+      <div class="pane" id="p-cams">
+        <div class="sec-title">
+          <span>Живая веб-камера (Live CV: огонь / дым / движение)</span>
+          <button class="sm pri" id="btnWebcam">Включить камеру</button>
+        </div>
+        <div class="cam-live-wrap" id="webcamWrap" style="display:none">
+          <video id="webcamVideo" autoplay muted playsinline></video>
+          <canvas id="webcamOverlay" width="320" height="200"></canvas>
+        </div>
+        <div id="webcamTelemetry" class="cmeta" style="margin-bottom:6px"></div>
+
+        <div class="card">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="blue sm" id="btnUploadImg">Загрузить кадр (.jpg/.png)</button>
+            <button class="sm amb" id="btnTestFireImg">Тест-кадр очага</button>
+            <input type="file" id="imgFile" accept="image/*" style="display:none">
+          </div>
+          <div id="visionResult" style="margin-top:7px"></div>
+        </div>
+
+        <div class="sec-title"><span>Оперативные камеры (sync)</span><span class="badge b-on">4 LIVE</span></div>
+        <div class="cams-grid" id="camsGrid"></div>
+
+        <div class="sec-title"><span id="b3dTitle">МВЦ EXPO · Павильон C2 (3D)</span><span class="sub">вращение мышью</span></div>
         <div class="floor-pills" id="floorPills"></div>
-        <canvas id="b3d" width="720" height="500"></canvas>
+        <canvas id="b3d" width="720" height="440"></canvas>
         <div style="display:flex;gap:6px;margin-top:7px">
           <select id="b3dUnitSel" style="flex:1;font-size:11.5px"></select>
-          <button class="grn sm" id="btnSend3dPlan">📤 Передать 3D-план группе</button>
+          <button class="grn sm" id="btnSend3dPlan">Передать 3D-план группе</button>
         </div>
         <div class="note" id="b3dNote"></div>
       </div>
